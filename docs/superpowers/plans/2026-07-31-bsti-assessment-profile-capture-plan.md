@@ -27,13 +27,13 @@ Keep the existing static `index.html` application and embedded Base64 ES modules
 - [x] Remove obsolete `eligibility` state and `SET_ELIGIBILITY`.
 - [x] Require profile fields, conditional `roleOther` / `industryOther`, and processing consent.
 - [x] Keep marketing consent optional.
-- [x] Preserve reset and gate-to-intro transition behavior.
+- [x] Preserve reset behavior and implement direct gate-to-assessment transition at page index 0.
 
 ### 3. Apply founder UI review
 
 - [x] Replace four eligibility checkboxes with descriptive eligibility/reference guidance.
 - [x] Stack all profile fields vertically.
-- [x] Use labels `姓名`, `公司／主要经营主体`, and `经营身份`.
+- [x] Use labels `姓名`, `公司／主要经营主体`, and `当前角色`.
 - [x] Add a required industry dropdown and conditional `其他` input.
 - [x] Normalize both consent checkbox dimensions to `18px × 18px`.
 - [x] Add clickable `privacy.html` and `report-usage.html` links.
@@ -53,7 +53,9 @@ Keep the existing static `index.html` application and embedded Base64 ES modules
 - [x] `node tests/report-v0441-cause-cost.mjs`
 - [x] `git diff --check`
 - [x] GitHub Actions `BSTI contract tests`
-- [x] Founder confirmed that `确认资料，开始测试` transitions normally into the 40-question flow.
+- [x] Chromium browser acceptance of the revised startup page and both compliance links.
+- [x] Direct entry to page 1 of 8 with questions 01–05 and `0／40`.
+- [x] Forward navigation to question 06 and return navigation to question 01.
 
 ## Frozen Boundaries
 
@@ -65,7 +67,5 @@ Keep the existing static `index.html` application and embedded Base64 ES modules
 
 ## Remaining Manual Review
 
-- [ ] Founder rechecks the revised gate visually on desktop and mobile widths.
-- [ ] Founder opens both compliance links and confirms readability/navigation.
+- [ ] Founder reviews the captured startup and assessment screenshots and decides whether the Draft PR is ready for review.
 - [ ] Production owner later replaces all visible launch placeholders before any real-data deployment.
-- [ ] Draft PR is marked ready only after founder approval.
