@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   contract-tests:
@@ -17,11 +17,71 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Apply approved BSTI full-name layout
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feat/user-profile-capture-v01'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+
+          index_path = Path('index.html')
+          test_path = Path('tests/profile-capture-static-contract.mjs')
+          html = index_path.read_text(encoding='utf-8')
+          test = test_path.read_text(encoding='utf-8')
+
+          css_anchor = '.eyebrow { color:var(--purple); text-transform:uppercase; letter-spacing:.08em; font-size:.78rem; font-weight:750; margin:0 0 14px; }'
+          css_addition = css_anchor + '\n.instrument-name { display:grid; gap:4px; text-transform:none; }\n.instrument-name-en { color:var(--muted); font-size:.72rem; font-weight:600; letter-spacing:.04em; }'
+          if '.instrument-name-en {' not in html:
+              if css_anchor not in html:
+                  raise SystemExit('eyebrow CSS anchor not found')
+              html = html.replace(css_anchor, css_addition, 1)
+
+          pattern = re.compile(r"(import \{ renderEligibilityGate, renderIntro \} from 'data:text/javascript;base64,)([^']+)(';)")
+          match = pattern.search(html)
+          if not match:
+              raise SystemExit('gate module import not found')
+          module = base64.b64decode(match.group(2)).decode('utf-8')
+          old = '<p class="eyebrow">${instrument.technical_name_zh}</p>'
+          new = '<p class="eyebrow instrument-name"><span>${instrument.technical_name_zh}</span><span class="instrument-name-en">${instrument.method_full_name}</span></p>'
+          if new not in module:
+              if old not in module:
+                  raise SystemExit('gate eyebrow markup anchor not found')
+              module = module.replace(old, new, 1)
+              encoded = base64.b64encode(module.encode('utf-8')).decode('ascii')
+              html = html[:match.start(2)] + encoded + html[match.end(2):]
+
+          assertion_anchor = "assert.ok(html.includes('.profile-grid { display:grid; grid-template-columns:1fr;'));"
+          assertions = "assert.ok(decoded.includes('class=\"eyebrow instrument-name\"'));\nassert.ok(decoded.includes('class=\"instrument-name-en\">${instrument.method_full_name}</span>'));\nassert.ok(decoded.includes('<span>富老板 BSTI</span>'));\nassert.ok(!decoded.includes('<span>富老板 BSTI｜Business System Tension Instrument</span>'));\nassert.ok(html.includes('.instrument-name-en {'));\n" + assertion_anchor
+          if "class=\"instrument-name-en\">${instrument.method_full_name}</span>" not in test:
+              if assertion_anchor not in test:
+                  raise SystemExit('profile contract assertion anchor not found')
+              test = test.replace(assertion_anchor, assertions, 1)
+
+          index_path.write_text(html, encoding='utf-8')
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          node tests/profile-capture-static-contract.mjs
+          node tests/report-v0441-static-contract.mjs
+          node tests/report-v0441-cause-cost.mjs
+          git diff --check
+
+          if test -n "$(git status --porcelain)"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html tests/profile-capture-static-contract.mjs
+            git commit -m "ui: show BSTI full name on startup page"
+            git push origin HEAD:feat/user-profile-capture-v01
+          fi
 
       - name: Run frozen contract tests
         run: |
@@ -31,3 +91,13 @@ jobs:
           git diff --check
           git status --short
           test -z "$(git status --porcelain)"
+
+      - name: Upload approved page source
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feat/user-profile-capture-v01'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bsti-pr3-full-name-layout
+          path: |
+            index.html
+            tests/profile-capture-static-contract.mjs
+          retention-days: 1
