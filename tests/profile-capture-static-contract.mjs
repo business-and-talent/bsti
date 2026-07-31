@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+// PR #3 startup-page acceptance contract.
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const baseline=execFileSync('git',['show','v0.4.4.1:index.html'],{encoding:'utf8'});
 const payload=(s,n)=>{const m=s.match(new RegExp(`import \{[^}]*${n}[^}]*\} from 'data:text/javascript;base64,([^']+)'`));assert.ok(m,`${n} import missing`);return m[1]};
