@@ -83,7 +83,7 @@ jobs:
             if (evidence.remainingCheckboxes !== 2) throw new Error('Unexpected consent checkbox count');
 
             const privacyPromise = context.waitForEvent('page');
-            await page.getByRole('link', { name: '《BSTI 个人信息处理规则》' }).click();
+            await page.getByRole('link', { name: '《BSTI 个人信息处理规则》' }).first().click();
             const privacyPage = await privacyPromise;
             await privacyPage.waitForLoadState('domcontentloaded');
             evidence.privacyUrl = privacyPage.url();
@@ -93,7 +93,7 @@ jobs:
             await privacyPage.close();
 
             const usagePromise = context.waitForEvent('page');
-            await page.getByRole('link', { name: '《BSTI 测试与报告使用说明》' }).click();
+            await page.getByRole('link', { name: '《BSTI 测试与报告使用说明》' }).first().click();
             const usagePage = await usagePromise;
             await usagePage.waitForLoadState('domcontentloaded');
             evidence.reportUsageUrl = usagePage.url();
