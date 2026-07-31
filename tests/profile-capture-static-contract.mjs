@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-// PR #3 startup-page acceptance contract.
+// PR #3 startup-page acceptance contract; final browser evidence captured.
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const privacy=fs.readFileSync(new URL('../privacy.html',import.meta.url),'utf8');
 const reportUsage=fs.readFileSync(new URL('../report-usage.html',import.meta.url),'utf8');
