@@ -13,6 +13,11 @@ const decoded=[...html.matchAll(/data:text\/javascript;base64,([^']+)'/g)].map(m
 const instrument=s=>JSON.parse(s.match(/const instrument = (\{.*?\});\n\s*const pages =/s)[1]);
 for(const removed of ['SET_ELIGIBILITY','eligibility-operating','eligibility-decisions','eligibility-six-months','eligibility-reference','confirmation-list'])assert.ok(!decoded.includes(removed),`obsolete ${removed}`);
 for(const text of ['BSTI 面向正在承担真实经营责任的老板、主要经营者及核心经营团队','>姓名<','>公司／主要经营主体<','>当前角色<','profile-industry-code','manufacturing','professional_services','href="./privacy.html"','href="./report-usage.html"','class="consent-choice"'])assert.ok(decoded.includes(text),`missing ${text}`);
+assert.ok(decoded.includes('class="eyebrow instrument-name"'));
+assert.ok(decoded.includes('class="instrument-name-en">${instrument.method_full_name}</span>'));
+assert.ok(decoded.includes('<span>富老板 BSTI</span>'));
+assert.ok(!decoded.includes('<span>富老板 BSTI｜Business System Tension Instrument</span>'));
+assert.ok(html.includes('.instrument-name-en {'));
 assert.ok(html.includes('.profile-grid { display:grid; grid-template-columns:1fr;'));
 assert.ok(html.includes('.consent-choice input[type="checkbox"]')&&html.includes('flex:0 0 18px'));
 for(const document of [privacy,reportUsage]){assert.ok(document.includes('href="./index.html"'));assert.ok(document.includes('当前角色'));assert.ok(!document.includes('经营身份'));}
