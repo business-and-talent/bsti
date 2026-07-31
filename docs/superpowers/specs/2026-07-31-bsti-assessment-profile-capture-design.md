@@ -8,10 +8,10 @@
 
 ## Goal
 
-Add the minimum pre-assessment profile and consent contract while preserving the existing flow:
+Add the minimum pre-assessment profile and consent contract while preserving the formal assessment and report flow:
 
 ```text
-gate → intro → assessment → review → results
+gate → assessment → review → results
 ```
 
 Profile/context fields must never enter BSTI scoring or change BSTM V0.4.4.1 report compilation.
@@ -22,11 +22,12 @@ The first implementation used four eligibility checkboxes and a two-column profi
 
 - one concise eligibility/reference explanation, with no confirmation checkboxes;
 - vertically stacked fields;
-- visible labels `姓名`, `公司／主要经营主体`, and `经营身份`;
+- visible labels `姓名`, `公司／主要经营主体`, and `当前角色`;
 - a required industry dropdown with a conditional free-text field for `其他`;
 - equal-size consent checkboxes;
 - clickable privacy and report-use documents;
-- visible technical label `经营系统张力测量工具`.
+- visible technical label `经营系统张力测量工具`;
+- direct entry from `确认资料，开始测试` to assessment page index 0.
 
 ## Gate UI Contract
 
@@ -42,7 +43,7 @@ Render in this order, one field per row:
 
 1. `displayName` — 姓名
 2. `businessUnit` — 公司／主要经营主体
-3. `roleCode` — 经营身份; `roleOther` required only when `other`
+3. `roleCode` — 当前角色; `roleOther` required only when `other`
 4. `revenueBand` — 年营收规模, including `prefer_not_to_say`
 5. `headcountBand` — 组织人数, including `prefer_not_to_say`
 6. `industryCode` — 所属行业; `industryOther` required only when `other`
@@ -123,8 +124,10 @@ Continue only when all required profile fields, conditional `roleOther` / `indus
 SET_PROFILE / SET_CONSENT
 → CONFIRM_PROFILE
 → validatePreAssessmentState(state)
-→ intro
+→ assessment, pageIndex 0
 ```
+
+The first assessment page contains questions 01–05; the complete instrument contains 40 questions in 8 pages. Forward and backward navigation continue to use the existing state actions.
 
 `submitAssessment()` remains isolated:
 
@@ -147,7 +150,7 @@ This revision does **not** change:
 
 ## Compliance Documents
 
-`privacy.html` and `report-usage.html` are clickable development-review pages derived from the P0 compliance text pack. They must visibly state that production launch is blocked until the registered entity, rights-request email, service-provider list, and effective information are completed.
+`privacy.html` and `report-usage.html` are clickable development-review pages derived from the P0 compliance text pack. They must provide a return link to `index.html` and visibly state that production launch is blocked until the registered entity, rights-request email, service-provider list, and effective information are completed.
 
 ## Scope Boundaries
 
@@ -165,7 +168,10 @@ Excluded:
 - profile fields render in the frozen vertical order;
 - industry dropdown and conditional `其他` validation work;
 - consent controls use equal dimensions;
-- both compliance links exist and resolve to repository pages;
+- both compliance links resolve and provide return navigation;
+- `CONFIRM_PROFILE` enters `assessment` at page index 0;
+- the instrument contains 40 questions and first item order is 1;
+- forward navigation reaches question 06 and backward navigation returns to question 01;
 - profile data never enters `scoreAssessment`;
 - the instrument differs from `v0.4.4.1` only at `technical_name_zh`;
 - reset returns the revised initial state;
