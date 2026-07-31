@@ -1,8 +1,9 @@
 name: BSTI founder review generator
 
 on:
-  push:
-    branches: [feat/user-profile-capture-v01]
+  pull_request:
+    branches: [main]
+    types: [synchronize]
 
 permissions:
   contents: write
