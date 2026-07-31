@@ -25,6 +25,7 @@ jobs:
 
       - name: Run frozen contract tests
         run: |
+          node tests/p0-platform-foundation-contract.mjs
           node tests/profile-capture-static-contract.mjs
           node tests/report-v0441-static-contract.mjs
           node tests/report-v0441-cause-cost.mjs
