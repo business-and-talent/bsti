@@ -1,22 +1,21 @@
-name: BSTI profile capture build
+name: BSTI contract tests
 
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  profile-capture:
-    if: github.head_ref == 'feat/user-profile-capture-v01'
+  contract-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Set up Node
@@ -24,34 +23,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify RED and apply implementation
-        run: |
-          if grep -q 'Assessment Profile Capture V0.1' index.html; then
-            echo 'Profile capture already applied.'
-          else
-            if node tests/profile-capture-static-contract.mjs; then
-              echo 'Expected the profile contract to fail before implementation.'
-              exit 1
-            fi
-            echo 'RED confirmed.'
-            node scripts/apply-profile-capture.mjs
-          fi
-
-      - name: Verify GREEN
+      - name: Run frozen contract tests
         run: |
           node tests/profile-capture-static-contract.mjs
           node tests/report-v0441-static-contract.mjs
           node tests/report-v0441-cause-cost.mjs
           git diff --check
-
-      - name: Commit generated index
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          if git diff --cached --quiet; then
-            echo 'No generated change to commit.'
-            exit 0
-          fi
-          git commit -m 'feat: add pre-assessment profile and consent form'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
