@@ -26,8 +26,8 @@ jobs:
 
       - name: Reconstruct and apply founder review
         run: |
-          cat scripts/founder-review.part.* > /tmp/apply-founder-review.py
-          python3 /tmp/apply-founder-review.py
+          cat scripts/founder-review.part.* > scripts/apply-founder-review.py
+          python3 scripts/apply-founder-review.py
 
       - name: Verify contracts
         run: |
