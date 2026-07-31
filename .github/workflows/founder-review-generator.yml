@@ -1,0 +1,48 @@
+name: BSTI founder review generator
+
+on:
+  push:
+    branches: [feat/user-profile-capture-v01]
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/user-profile-capture-v01
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Reconstruct and apply founder review
+        run: |
+          cat scripts/founder-review.part.* > /tmp/apply-founder-review.py
+          python3 /tmp/apply-founder-review.py
+
+      - name: Verify contracts
+        run: |
+          node tests/profile-capture-static-contract.mjs
+          node tests/report-v0441-static-contract.mjs
+          node tests/report-v0441-cause-cost.mjs
+          git diff --check
+
+      - name: Commit generated corrections
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html privacy.html report-usage.html tests/profile-capture-static-contract.mjs tests/report-v0441-static-contract.mjs
+          if git diff --cached --quiet; then
+            echo 'No generated corrections.'
+            exit 0
+          fi
+          git commit -m 'fix: apply founder review corrections'
+          git push origin HEAD:feat/user-profile-capture-v01
