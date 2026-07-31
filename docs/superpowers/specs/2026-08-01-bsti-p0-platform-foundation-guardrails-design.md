@@ -23,6 +23,8 @@ PR #4 adds only:
 
 ### Development/demo
 
+GitHub Pages is development/demo only.
+
 - Host class: GitHub Pages.
 - Real identifiable data: forbidden.
 - Submission: disabled.
