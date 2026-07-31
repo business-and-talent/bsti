@@ -1,0 +1,111 @@
+name: BSTI PR3 one-time finalization
+
+on:
+  push:
+    branches:
+      - feat/user-profile-capture-v01
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/user-profile-capture-v01
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Add failing startup-flow contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/profile-capture-static-contract.mjs')
+          text = path.read_text()
+          text = text.replace("'>经营身份<'", "'>当前角色<'")
+          old = "assert.equal(state.reduceState(complete,{type:'CONFIRM_PROFILE'},[]).view,'intro');"
+          new = """const confirmed=state.reduceState(complete,{type:'CONFIRM_PROFILE'},[]);assert.equal(confirmed.view,'assessment');assert.equal(confirmed.pageIndex,0);assert.equal(current.items.length,40);assert.equal(current.items[0].order,1);const assessmentPages=Array.from({length:8},(_,index)=>current.items.slice(index*5,index*5+5));let navigationState=confirmed;for(const item of assessmentPages[0])navigationState=state.reduceState(navigationState,{type:'ANSWER',itemId:item.id,value:3},assessmentPages);navigationState=state.reduceState(navigationState,{type:'NEXT_PAGE'},assessmentPages);assert.equal(navigationState.pageIndex,1);navigationState=state.reduceState(navigationState,{type:'PREV_PAGE'},assessmentPages);assert.equal(navigationState.pageIndex,0);assert.ok(!decoded.includes('>经营身份<'));"""
+          if old not in text:
+              raise SystemExit('Expected pre-change CONFIRM_PROFILE assertion not found')
+          path.write_text(text.replace(old, new))
+          PY
+
+      - name: Verify RED state
+        run: |
+          if node tests/profile-capture-static-contract.mjs; then
+            echo 'Expected the new startup-flow contract to fail before implementation.' >&2
+            exit 1
+          fi
+          echo 'RED verified: current implementation does not satisfy the new contract.'
+
+      - name: Implement direct assessment entry and final label
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+
+          path = Path('index.html')
+          html = path.read_text()
+          pattern = re.compile(r"(import \{[^}]+\} from 'data:text/javascript;base64,)([^']+)(')")
+          state_changed = False
+          gate_changed = False
+
+          def update(match):
+              global state_changed, gate_changed
+              source = base64.b64decode(match.group(2)).decode()
+              updated = source
+
+              if "export function createInitialState" in source and "case 'CONFIRM_PROFILE':" in source:
+                  start = source.index("case 'CONFIRM_PROFILE':")
+                  end = source.index("case 'START_ASSESSMENT':", start)
+                  block = source[start:end]
+                  if block.count("view: 'intro'") != 1:
+                      raise SystemExit('Unexpected CONFIRM_PROFILE implementation')
+                  revised = block.replace("view: 'intro'", "view: 'assessment',\n        pageIndex: 0", 1)
+                  updated = source[:start] + revised + source[end:]
+                  state_changed = True
+
+              if "export function renderEligibilityGate" in source:
+                  if ">经营身份<" not in source:
+                      raise SystemExit('Expected operating-role label not found')
+                  updated = updated.replace(">经营身份<", ">当前角色<", 1)
+                  gate_changed = True
+
+              if updated == source:
+                  return match.group(0)
+              encoded = base64.b64encode(updated.encode()).decode()
+              return match.group(1) + encoded + match.group(3)
+
+          revised_html = pattern.sub(update, html)
+          if not state_changed:
+              raise SystemExit('State module was not updated')
+          if not gate_changed:
+              raise SystemExit('Gate renderer was not updated')
+          path.write_text(revised_html)
+          Path('.github/workflows/bsti-pr3-finalize-once.yml').unlink()
+          PY
+
+      - name: Verify final branch content
+        run: |
+          node tests/profile-capture-static-contract.mjs
+          node tests/report-v0441-static-contract.mjs
+          node tests/report-v0441-cause-cost.mjs
+          git diff --check
+
+      - name: Commit and push finalization
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html tests/profile-capture-static-contract.mjs .github/workflows/bsti-pr3-finalize-once.yml
+          git commit -m 'fix: complete BSTI startup page handoff'
+          git push origin HEAD:feat/user-profile-capture-v01
