@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "p0-environment-contract-v0.1",
+  "defaultEnvironment": "development",
+  "environments": {
+    "development": {
+      "hostClass": "github_pages",
+      "realIdentifiableDataAllowed": false,
+      "submissionMode": "disabled",
+      "apiMode": "disabled",
+      "visibleDemoMarkerRequired": true
+    },
+    "production": {
+      "hostClass": "tencent_cloudbase",
+      "region": "shanghai",
+      "submissionMode": "launch_gated",
+      "submissionEnabledByDefault": false,
+      "frontendSecretsAllowed": false,
+      "activationRequirements": [
+        "registered_legal_entity",
+        "personal_information_rights_contact",
+        "approved_first_party_domain",
+        "tencent_cloud_contracting_entity",
+        "vendor_data_flow_inventory",
+        "storage_backup_location_verified",
+        "final_legal_review"
+      ]
+    }
+  }
+}
