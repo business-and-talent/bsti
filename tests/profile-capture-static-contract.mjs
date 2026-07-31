@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+// PR #3 startup-page acceptance contract; final browser evidence captured.
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const privacy=fs.readFileSync(new URL('../privacy.html',import.meta.url),'utf8');
+const reportUsage=fs.readFileSync(new URL('../report-usage.html',import.meta.url),'utf8');
+const plan=fs.readFileSync(new URL('../docs/superpowers/plans/2026-07-31-bsti-assessment-profile-capture-plan.md',import.meta.url),'utf8');
+const design=fs.readFileSync(new URL('../docs/superpowers/specs/2026-07-31-bsti-assessment-profile-capture-design.md',import.meta.url),'utf8');
+const baseline=execFileSync('git',['show','v0.4.4.1:index.html'],{encoding:'utf8'});
+const payload=(s,n)=>{const m=s.match(new RegExp(`import \{[^}]*${n}[^}]*\} from 'data:text/javascript;base64,([^']+)'`));assert.ok(m,`${n} import missing`);return m[1]};
+const decoded=[...html.matchAll(/data:text\/javascript;base64,([^']+)'/g)].map(m=>Buffer.from(m[1],'base64').toString()).join('\n');
+const instrument=s=>JSON.parse(s.match(/const instrument = (\{.*?\});\n\s*const pages =/s)[1]);
+for(const removed of ['SET_ELIGIBILITY','eligibility-operating','eligibility-decisions','eligibility-six-months','eligibility-reference','confirmation-list'])assert.ok(!decoded.includes(removed),`obsolete ${removed}`);
+for(const text of ['BSTI 面向正在承担真实经营责任的老板、主要经营者及核心经营团队','>姓名<','>公司／主要经营主体<','>当前角色<','profile-industry-code','manufacturing','professional_services','href="./privacy.html"','href="./report-usage.html"','class="consent-choice"'])assert.ok(decoded.includes(text),`missing ${text}`);
+assert.ok(decoded.includes('class="eyebrow instrument-name"'));
+assert.ok(decoded.includes('class="instrument-name-en">${instrument.method_full_name}</span>'));
+assert.ok(decoded.includes('<span>富老板 BSTI</span>'));
+assert.ok(!decoded.includes('<span>富老板 BSTI｜Business System Tension Instrument</span>'));
+assert.ok(html.includes('.instrument-name-en {'));
+assert.ok(html.includes('.profile-grid { display:grid; grid-template-columns:1fr;'));
+assert.ok(html.includes('.consent-choice input[type="checkbox"]')&&html.includes('flex:0 0 18px'));
+for(const document of [privacy,reportUsage]){assert.ok(document.includes('href="./index.html"'));assert.ok(document.includes('当前角色'));assert.ok(!document.includes('经营身份'));}
+assert.ok(privacy.includes('Business System Tension Instrument，经营系统张力测量工具'));
+assert.ok(plan.includes('direct gate-to-assessment transition at page index 0'));
+assert.ok(plan.includes('`当前角色`'));
+assert.ok(!plan.includes('gate-to-intro'));
+assert.ok(design.includes('gate → assessment → review → results'));
+assert.ok(design.includes('`roleCode` — 当前角色'));
+assert.ok(design.includes('→ assessment, pageIndex 0'));
+assert.ok(!design.includes('gate → intro → assessment'));
+const current=instrument(html), frozen=instrument(baseline);const {technical_name_zh:_,...a}=current,{technical_name_zh:__,...b}=frozen;assert.deepEqual(a,b);assert.equal(current.technical_name_zh,'经营系统张力测量工具');assert.equal(payload(html,'scoreAssessment'),payload(baseline,'scoreAssessment'));
+const state=await import(`data:text/javascript;base64,${payload(html,'createInitialState')}`);const initial=state.createInitialState();assert.ok(!('eligibility' in initial));assert.equal(initial.assessmentProfile.industryCode,'');assert.equal(state.validatePreAssessmentState(initial).firstInvalidField,'displayName');
+const complete={...initial,assessmentProfile:{...initial.assessmentProfile,displayName:'测试用户',businessUnit:'测试企业',roleCode:'founder_controller',revenueBand:'prefer_not_to_say',headcountBand:'prefer_not_to_say',industryCode:'professional_services'},consents:{...initial.consents,reportProcessing:true}};assert.equal(state.validatePreAssessmentState(complete).valid,true);const confirmed=state.reduceState(complete,{type:'CONFIRM_PROFILE'},[]);assert.equal(confirmed.view,'assessment');assert.equal(confirmed.pageIndex,0);assert.equal(current.items.length,40);assert.equal(current.items[0].order,1);const assessmentPages=Array.from({length:8},(_,index)=>current.items.slice(index*5,index*5+5));let navigationState=confirmed;for(const item of assessmentPages[0])navigationState=state.reduceState(navigationState,{type:'ANSWER',itemId:item.id,value:3},assessmentPages);navigationState=state.reduceState(navigationState,{type:'NEXT_PAGE'},assessmentPages);assert.equal(navigationState.pageIndex,1);navigationState=state.reduceState(navigationState,{type:'PREV_PAGE'},assessmentPages);assert.equal(navigationState.pageIndex,0);assert.ok(!decoded.includes('>经营身份<'));assert.equal(state.validatePreAssessmentState({...complete,assessmentProfile:{...complete.assessmentProfile,industryCode:'other',industryOther:''}}).firstInvalidField,'industryOther');assert.deepEqual(state.reduceState(complete,{type:'RESET'},[]),initial);
+console.log('Assessment profile capture static contract: PASS');

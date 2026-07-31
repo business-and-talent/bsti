@@ -24,10 +24,13 @@ function decodedModules(source) {
     .join('\n');
 }
 
-const currentInstrument = html.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1];
-const baselineInstrument = baseline.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1];
+const currentInstrument = JSON.parse(html.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1]);
+const baselineInstrument = JSON.parse(baseline.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1]);
+const { technical_name_zh: _currentTechnicalName, ...currentFrozenInstrument } = currentInstrument;
+const { technical_name_zh: _baselineTechnicalName, ...baselineFrozenInstrument } = baselineInstrument;
 
-assert.equal(currentInstrument, baselineInstrument, 'instrument changed from v0.4.4');
+assert.deepEqual(currentFrozenInstrument, baselineFrozenInstrument, 'instrument changed from v0.4.4 beyond technical_name_zh');
+assert.equal(currentInstrument.technical_name_zh, '经营系统张力测量工具');
 assert.equal(
   importPayload(html, 'scoreAssessment'),
   importPayload(baseline, 'scoreAssessment'),
