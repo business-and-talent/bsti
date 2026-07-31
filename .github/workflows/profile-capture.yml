@@ -29,3 +29,5 @@ jobs:
           node tests/report-v0441-static-contract.mjs
           node tests/report-v0441-cause-cost.mjs
           git diff --check
+          git status --short
+          test -z "$(git status --porcelain)"
