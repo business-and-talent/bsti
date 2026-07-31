@@ -214,7 +214,7 @@ assert.equal(
   'roleOther'
 );
 
-const draftModule = await importEmbeddedModule(html, 'serializeDraft');
+const draftModule = await importEmbeddedModule(html, 'shouldResetAssessmentViewport');
 const serialized = draftModule.serializeDraft(
   { ...complete, result: { stale: true } },
   '0.4.3'
