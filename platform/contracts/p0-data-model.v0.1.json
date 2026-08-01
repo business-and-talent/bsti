@@ -39,7 +39,7 @@
   "profileSnapshot": {
     "oneToOne": true,
     "identifyingFieldsSeparatelyGoverned": true,
-    "anonymizationAuditRequired": true,
+    "redactionAuditRequired": true,
     "scoringInput": false,
     "contextOnlyFields": [
       "revenueBand",
