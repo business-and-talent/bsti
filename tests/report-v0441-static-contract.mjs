@@ -26,11 +26,13 @@ function decodedModules(source) {
 
 const currentInstrument = JSON.parse(html.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1]);
 const baselineInstrument = JSON.parse(baseline.match(/const instrument = (\{.*?\});\n\s*const pages =/s)?.[1]);
-const { technical_name_zh: _currentTechnicalName, ...currentFrozenInstrument } = currentInstrument;
-const { technical_name_zh: _baselineTechnicalName, ...baselineFrozenInstrument } = baselineInstrument;
+const { technical_name_zh: _currentTechnicalName, product_name: _currentProductName, construct: _currentConstruct, ...currentFrozenInstrument } = currentInstrument;
+const { technical_name_zh: _baselineTechnicalName, product_name: _baselineProductName, construct: _baselineConstruct, ...baselineFrozenInstrument } = baselineInstrument;
 
 assert.deepEqual(currentFrozenInstrument, baselineFrozenInstrument, 'instrument changed from v0.4.4 beyond technical_name_zh');
 assert.equal(currentInstrument.technical_name_zh, '经营系统张力测量工具');
+assert.equal(currentInstrument.product_name, '富老板经营系统张力测试');
+assert.equal(currentInstrument.construct, '经营系统张力');
 assert.equal(
   importPayload(html, 'scoreAssessment'),
   importPayload(baseline, 'scoreAssessment'),
