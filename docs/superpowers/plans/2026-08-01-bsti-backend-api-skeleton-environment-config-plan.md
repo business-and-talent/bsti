@@ -82,7 +82,9 @@ function expectConfigError(env, expectedCode) {
     (error) => {
       assert.ok(error instanceof ConfigError);
       assert.equal(error.code, expectedCode);
-      assert.equal(error.message.includes(String(env.BSTI_SUBMISSION_ENABLED ?? '')), false);
+      for (const suppliedValue of Object.values(env)) {
+        assert.equal(error.message.includes(String(suppliedValue)), false);
+      }
       return true;
     }
   );
@@ -955,7 +957,7 @@ git commit -m "feat: add CloudBase deployment skeleton guardrails"
 
 In `README.md`, retain the existing title, product description, and environment boundary. Replace the current `## Contract verification` section with:
 
-```markdown
+````markdown
 ## Backend API skeleton
 
 PR #6 adds a deployable repository skeleton only. It does not create or connect a Tencent CloudBase environment, does not expose a public API URL, and does not accept or persist assessment data.
@@ -995,7 +997,7 @@ test -z "$(git status --porcelain)"
 ```
 
 The P0 platform contracts are stored under `platform/contracts/`. They preserve `BSTI-40 V0.4.3`, `BSTM V0.4.4.1`, browser-side report compilation, and the isolation of revenue/headcount as context-only inputs.
-```
+````
 
 When editing Markdown, use a four-backtick outer fence or edit the file directly so the nested shell fences remain valid.
 
