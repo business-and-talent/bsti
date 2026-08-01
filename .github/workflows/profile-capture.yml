@@ -25,7 +25,7 @@ jobs:
           node-version: '22'
 
       - name: Apply deterministic PR5 transformation
-        run: node scripts/apply-pr5.mjs
+        run: node scripts/apply-pr5-runner.mjs
 
       - name: Run frozen contract tests
         run: |
