@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const decodedModules = [...html.matchAll(/data:text\/javascript;base64,([^']+)'/g)]
+  .map((match) => Buffer.from(match[1], 'base64').toString('utf8'))
+  .join('\n');
 
 function payload(source, exportName) {
   const match = source.match(new RegExp(`import \\{[^}]*${exportName}[^}]*\\} from 'data:text/javascript;base64,([^']+)'`));
@@ -54,13 +57,13 @@ assert.equal(
 assert.ok(html.includes("const continuation = parseReportContinuationHash(window.location.hash, instrument);"));
 assert.ok(html.includes("history.replaceState(null, '', createReportContinuationHash("));
 assert.ok(html.includes("history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);"));
-assert.ok(html.includes('专业服务／咨询／法务／财会'));
-assert.ok(html.includes('经营系统张力图'));
-assert.ok(html.includes('${instrument.visualization_full_name}'));
-assert.ok(!html.includes('BSTM｜经营系统张力图'));
-assert.ok(html.includes('你的经营系统张力报告'));
-assert.ok(!html.includes('你的经营系统张力轮廓'));
-assert.ok(html.includes('报告网址包含经营主体与作答数据，请勿转发'));
+assert.ok(decodedModules.includes('专业服务／咨询／法务／财会'));
+assert.ok(decodedModules.includes('经营系统张力图'));
+assert.ok(decodedModules.includes('${instrument.visualization_full_name}'));
+assert.ok(!decodedModules.includes('BSTM｜经营系统张力图'));
+assert.ok(decodedModules.includes('你的经营系统张力报告'));
+assert.ok(!decodedModules.includes('你的经营系统张力轮廓'));
+assert.ok(decodedModules.includes('报告网址包含经营主体与作答数据，请勿转发'));
 assert.ok(html.includes('.result-hero h1 { font-size:clamp(1.65rem, 6.8vw, 3.4rem); white-space:nowrap; }'));
 
 console.log('Report continuation and naming contract: PASS');
