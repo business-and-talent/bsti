@@ -1,6 +1,6 @@
 # BSTI PR #7｜MySQL Schema and Migration Contract Design
 
-**Status:** Founder-approved design
+**Status:** Founder-approved and self-reviewed
 
 **Baseline:** `main` at `76b0600881c7e5fe57a4b358f3c3a936008a7178` after merged PR #6
 
@@ -12,70 +12,57 @@ PR #7 establishes the first versioned relational data model for BSTI and proves 
 
 This pull request does **not** connect a real Tencent CloudBase or TencentDB environment. It does **not** enable assessment submission or persistence in the running backend. It only establishes the repository-controlled database contract required by the later submission and production-launch pull requests.
 
-The current product boundary remains unchanged:
+The frozen product boundary remains unchanged:
 
-- `BSTI-40 V0.4.3` is the frozen instrument;
-- `BSTM V0.4.4.1` is the frozen report-rules version;
+- `BSTI-40 V0.4.3` is the instrument;
+- `BSTM V0.4.4.1` is the report-rules version;
 - the browser remains the authoritative scoring and report compiler;
 - revenue band and headcount band remain context-only inputs;
 - the backend may validate, store, associate, and control access;
 - the backend and database must not score assessments or compile reports.
 
-## 2. Approved Product Decisions
+## 2. Approved Decisions
 
 ### 2.1 Independent assessment records
 
-Each assessment is an independent record and snapshot.
+Each assessment is an independent measurement event and snapshot.
 
-PR #7 must not create persistent master entities for:
+PR #7 must not create master entities for persons, organizations, customers, accounts, or tenants. It must not infer that two assessments belong to the same person or business entity. Any future cross-assessment association requires a later migration, explicit authorization, and separate access rules.
 
-- persons;
-- organizations;
-- customers;
-- tenants;
-- accounts;
-- cross-assessment identity resolution.
+### 2.2 One authoritative answer row per item
 
-The system must not infer that two assessments belong to the same person or business entity. Future cross-assessment association, if approved, must be introduced by a later migration with explicit authorization and access rules.
-
-### 2.2 Authoritative answers: one row per item
-
-The only authoritative stored answer representation is one row per item in `assessment_answers`.
-
-The database must not store a second authoritative copy of all 40 answers as JSON. The combination of `assessment_id` and `item_id` must be unique.
+`assessment_answers` is the only authoritative answer store. The database must not store a second authoritative 40-answer JSON document.
 
 ### 2.3 A+ research boundary
 
-The operational schema preserves the minimum structured fields that may support future anonymous research, instrument validation, cohort analysis, theory development, and model iteration.
+The operational schema preserves structured fields that may support future anonymous research, instrument validation, cohort analysis, theory development, and model iteration.
 
-Research use remains separate from product delivery:
+Research remains separate from product delivery:
 
 - research consent is independent and optional;
-- research refusal must not block assessment completion or report delivery;
-- PR #7 does not implement a research dataset, research export, statistics pipeline, or model-training pipeline;
+- refusal does not block assessment completion or report delivery;
+- PR #7 does not implement a research dataset, export, statistics pipeline, or model-training pipeline;
 - future research projection must use an independently generated research identifier and must not expose an operational `assessment_id` or reversible mapping key.
 
-### 2.4 Profile snapshot separation
+### 2.4 Separate profile snapshot
 
-Assessment lifecycle data belongs in `assessments`.
+Assessment lifecycle data belongs in `assessments`. Identifying and contextual information belongs in one `assessment_profile_snapshots` row.
 
-The name, business entity, role, industry, revenue band, headcount band, and notice/consent evidence belong in a one-to-one `assessment_profile_snapshots` record.
-
-This separation permits tighter access control, retention, deletion, or anonymization treatment for identifying data without altering the authoritative answers or assessment audit record.
+The snapshot row remains linked for audit, but its identifying and quasi-identifying fields may later be redacted. Redaction clears those fields and records redaction metadata; it does not delete the assessment, answers, or audit relationship.
 
 ### 2.5 Submitted assessments are immutable
 
-The approved lifecycle is:
+The lifecycle is:
 
 ```text
 draft → submitted → voided
 ```
 
 - `draft`: profile and answers may be created or replaced;
-- `submitted`: profile and answers are immutable;
-- `voided`: terminal state; the audit record remains, but the assessment is excluded from further report delivery and future research projection.
+- `submitted`: instrument identity, profile facts, and answers are immutable;
+- `voided`: terminal state; the audit record remains, but no new report delivery or future research projection is permitted.
 
-Corrections or retakes create a new assessment. A submitted or voided assessment is never edited back into a draft.
+Corrections or retakes create a new assessment.
 
 ## 3. Architecture
 
@@ -93,9 +80,9 @@ tests/
 └── mysql-schema-migration-contract.mjs
 ```
 
-The implementation may add a narrowly scoped CI helper when required to run MySQL 8 migration verification. It must not add a production database SDK, a live connection configuration, or a deployment credential.
+A narrowly scoped CI helper may be added only when required to inspect an isolated MySQL 8 database. No production database SDK, live connection configuration, or credential is added.
 
-The runtime API created in PR #6 remains unchanged and continues to declare:
+The PR #6 runtime remains unchanged and continues to declare:
 
 - `assessmentSubmission: false`;
 - `persistence: false`;
@@ -104,294 +91,224 @@ The runtime API created in PR #6 remains unchanged and continues to declare:
 
 ## 4. Database Conventions
 
-### 4.1 Database target
+- MySQL 8 and InnoDB;
+- `utf8mb4` for application text;
+- `DATETIME(3)` timestamps, written and interpreted as UTC;
+- application-generated UUIDs stored as `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin`;
+- plural snake-case table names and snake-case columns;
+- explicit, stable constraint and index names;
+- zero-padded monotonic migration numbers;
+- lexical migration order.
 
-- MySQL 8;
-- InnoDB tables;
-- `utf8mb4` character set;
-- millisecond timestamps using `DATETIME(3)`;
-- application-generated UUID values stored as `CHAR(36)` using ASCII-compatible collation;
-- all application timestamps are written and interpreted as UTC.
+PR #7 does not create a database, database user, network route, CloudBase resource, or TencentDB instance.
 
-PR #7 does not create a database, database user, network route, or CloudBase resource.
+The database enforces structural integrity: primary keys, foreign keys, uniqueness, value ranges, required values, and status/timestamp coherence.
 
-### 4.2 Naming
+PR #8 will enforce workflow integrity: complete 40-answer submission, exact instrument/version match, required profile fields at submission, legal state transitions, submitted-record immutability, consent transitions, and authorization.
 
-- plural snake-case table names;
-- snake-case columns;
-- constraint and index names are explicit and stable;
-- migration files use zero-padded monotonic numeric prefixes;
-- migration ordering is lexical and therefore deterministic.
+PR #7 must not use triggers, stored procedures, scheduled jobs, generated scores, quadrant totals, focus routing, or report-compiler logic.
 
-### 4.3 Constraint ownership
+## 5. Physical Table Design
 
-The database enforces structural integrity:
-
-- primary keys;
-- foreign keys;
-- uniqueness;
-- allowed value ranges;
-- required values;
-- timestamp/status coherence where expressible as a check constraint.
-
-The later backend transaction layer enforces workflow integrity:
-
-- exactly 40 answers before submission;
-- exact instrument and version match;
-- complete required profile data;
-- legal state transitions;
-- submitted-record immutability;
-- research-consent transition rules.
-
-PR #7 must not use database triggers, stored procedures, scheduled jobs, generated quadrant scores, or report-compiler logic.
-
-## 5. Table Design
-
-## 5.1 `assessments`
+### 5.1 `assessments`
 
 Purpose: aggregate root for one independent BSTI measurement event.
 
-Required columns:
-
-| Column | Contract |
+| Column | SQL contract |
 |---|---|
-| `id` | `CHAR(36)` primary key; application-generated UUID |
-| `instrument_id` | required; frozen value `BSTI-40` for P0 |
-| `instrument_version` | required; frozen value `V0.4.3` for P0 |
-| `status` | required; `draft`, `submitted`, or `voided` |
-| `started_at` | required UTC timestamp |
-| `submitted_at` | null for draft; required for submitted and voided |
-| `voided_at` | null unless voided |
-| `void_reason_code` | null unless voided; required for voided |
-| `voided_by_actor_type` | null unless voided; required for voided |
-| `voided_by_actor_reference` | null unless voided; required for voided; opaque audit reference, not a new user master entity |
-| `created_at` | required UTC timestamp |
-| `updated_at` | required UTC timestamp |
+| `id` | `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin` primary key |
+| `instrument_id` | `VARCHAR(32)` not null; P0 check value `BSTI-40` |
+| `instrument_version` | `VARCHAR(32)` not null; P0 check value `V0.4.3` |
+| `status` | `VARCHAR(16)` not null; `draft`, `submitted`, or `voided` |
+| `started_at` | `DATETIME(3)` not null |
+| `submitted_at` | `DATETIME(3)` nullable |
+| `voided_at` | `DATETIME(3)` nullable |
+| `void_reason_code` | `VARCHAR(64)` nullable |
+| `voided_by_actor_type` | `VARCHAR(32)` nullable |
+| `voided_by_actor_reference` | `VARCHAR(128)` nullable; opaque audit reference, not a user entity |
+| `created_at` | `DATETIME(3)` not null, default current timestamp |
+| `updated_at` | `DATETIME(3)` not null, default/current update timestamp |
 
-Status coherence:
+Status coherence check:
 
-- `draft`: `submitted_at`, `voided_at`, and all void metadata are null;
-- `submitted`: `submitted_at` is not null and all void metadata are null;
-- `voided`: `submitted_at`, `voided_at`, reason, actor type, and actor reference are not null;
-- a voided timestamp cannot precede the submitted timestamp.
+- `draft`: submission and void fields are null;
+- `submitted`: `submitted_at` is present and void fields are null;
+- `voided`: `submitted_at`, `voided_at`, reason, actor type, and actor reference are present;
+- `voided_at >= submitted_at`.
 
 Indexes:
 
-- status plus creation time for operational queueing;
-- submitted time for later retention and audit operations.
+- `(status, created_at)`;
+- `(submitted_at)`.
 
-No score, quadrant, focus group, report narrative, report HTML, or report JSON column is permitted in this table.
+Forbidden columns include scores, quadrant totals, focus groups, report narratives, report HTML, and report JSON.
 
-## 5.2 `assessment_profile_snapshots`
+### 5.2 `assessment_profile_snapshots`
 
-Purpose: one-to-one snapshot of identifying and contextual information provided for one assessment.
+Purpose: one-to-one profile and context snapshot for one assessment.
 
-Primary and foreign key:
+`assessment_id` is the primary key and a foreign key to `assessments.id` with restricted deletion.
 
-- `assessment_id` is both the primary key and a foreign key to `assessments.id`;
-- deletion is restricted rather than cascaded because assessment records are audit records.
-
-Required or conditionally required fields:
-
-| Column | Contract |
+| Column | SQL contract |
 |---|---|
-| `assessment_id` | one-to-one parent reference |
-| `display_name` | assessment-specific name snapshot |
-| `business_entity_name` | company or primary operating entity snapshot |
-| `current_role` | role snapshot; not a person master record |
-| `industry_code` | stable application code |
-| `industry_other_text` | allowed only when `industry_code` represents `other`; otherwise null |
-| `revenue_band` | context-only classification |
-| `headcount_band` | context-only classification |
-| `privacy_notice_version` | version shown when report-processing consent was obtained |
-| `report_usage_notice_version` | report-use notice version shown |
-| `report_processing_consent_at` | required evidence for product delivery processing |
-| `marketing_consent_granted` | required boolean; false by default |
-| `marketing_consent_text_version` | required only when marketing consent is granted |
-| `marketing_consent_at` | required only when marketing consent is granted |
-| `created_at` | required UTC timestamp |
-| `updated_at` | required UTC timestamp |
+| `assessment_id` | UUID-format `CHAR(36)` primary/foreign key |
+| `display_name` | `VARCHAR(100)` nullable at database level; required by PR #8 before submission |
+| `business_entity_name` | `VARCHAR(200)` nullable at database level; required before submission |
+| `current_role` | `VARCHAR(100)` nullable at database level; required before submission |
+| `industry_code` | `VARCHAR(64)` nullable at database level; required before submission |
+| `industry_other_text` | `VARCHAR(200)` nullable; permitted only for the `other` industry code |
+| `revenue_band` | `VARCHAR(64)` nullable at database level; context-only and required before submission |
+| `headcount_band` | `VARCHAR(64)` nullable at database level; context-only and required before submission |
+| `privacy_notice_version` | `VARCHAR(64)` nullable after redaction; required before submission |
+| `report_usage_notice_version` | `VARCHAR(64)` nullable after redaction; required before submission |
+| `report_processing_consent_at` | `DATETIME(3)` nullable after redaction; required before submission |
+| `marketing_consent_granted` | `TINYINT(1)` not null, default `0`, check 0 or 1 |
+| `marketing_consent_text_version` | `VARCHAR(64)` nullable; required when marketing consent is 1 |
+| `marketing_consent_at` | `DATETIME(3)` nullable; required when marketing consent is 1 |
+| `redacted_at` | `DATETIME(3)` nullable |
+| `redaction_reason_code` | `VARCHAR(64)` nullable |
+| `created_at` | `DATETIME(3)` not null |
+| `updated_at` | `DATETIME(3)` not null |
 
-Scoring isolation:
+Redaction contract:
 
-- none of these fields may enter BSTI scoring;
-- `revenue_band` and `headcount_band` remain context-only;
-- the database must not derive or store a score from any profile field.
+- while `redacted_at` is null, `redaction_reason_code` is null;
+- when `redacted_at` is present, `redaction_reason_code` is required;
+- a redaction operation clears identifying and quasi-identifying profile fields, consent-display metadata, and marketing fields as legally and operationally required;
+- `assessment_id`, `redacted_at`, `redaction_reason_code`, `created_at`, and `updated_at` remain for audit;
+- redaction does not alter answers or assessment lifecycle facts.
 
-The schema does not create separate person or organization foreign keys.
+The schema permits nullable profile fields to support redaction. PR #8 must nevertheless require a complete, non-redacted profile before submission.
 
-## 5.3 `assessment_answers`
+No profile field may enter scoring. No person or organization foreign key is permitted.
 
-Purpose: the single authoritative answer store.
+### 5.3 `assessment_answers`
 
-Required columns:
+Purpose: single authoritative answer store.
 
-| Column | Contract |
+| Column | SQL contract |
 |---|---|
-| `assessment_id` | parent assessment reference |
-| `item_id` | integer item identifier from 1 through 40 |
-| `answer_value` | integer Likert response from 1 through 5 |
-| `created_at` | required UTC timestamp |
-| `updated_at` | required UTC timestamp |
+| `assessment_id` | UUID-format `CHAR(36)` parent reference |
+| `item_id` | `SMALLINT UNSIGNED` not null, check 1–40 |
+| `answer_value` | `TINYINT UNSIGNED` not null, check 1–5 |
+| `created_at` | `DATETIME(3)` not null |
+| `updated_at` | `DATETIME(3)` not null |
 
-Keys and constraints:
+Constraints:
 
-- composite primary key: `assessment_id`, `item_id`;
+- composite primary key `(assessment_id, item_id)`;
 - foreign key to `assessments.id` with restricted deletion;
-- `item_id` check: 1–40;
-- `answer_value` check: 1–5;
-- an index beginning with `item_id` may support future quality analysis without changing the answer authority model.
+- index `(item_id, answer_value)` for future quality analysis.
 
-The database can constrain legal item identifiers and answer ranges. The later submission transaction must verify that a submitted assessment has exactly one answer for every item from 1 through 40.
+PR #8 must verify that a submitted assessment has exactly one answer for each item 1 through 40.
 
-Forbidden answer representations:
+Forbidden representations:
 
-- no `answers_json` column;
-- no duplicated response payload table;
-- no score columns;
-- no quadrant totals;
-- no calculated focus group.
+- `answers_json`;
+- duplicated answer payload tables;
+- score columns;
+- quadrant totals;
+- calculated focus groups.
 
-## 5.4 `assessment_research_consents`
+### 5.4 `assessment_research_consents`
 
-Purpose: one-to-one research permission record, independent from report-processing consent.
+Purpose: one-to-one research permission, independent from report-processing and marketing consent.
 
-Required columns:
-
-| Column | Contract |
+| Column | SQL contract |
 |---|---|
-| `assessment_id` | primary key and parent reference |
-| `consent_status` | `not_granted`, `granted`, or `withdrawn` |
-| `consent_text_version` | required for granted or withdrawn consent; nullable while never granted |
-| `granted_at` | required for granted or withdrawn status |
-| `withdrawn_at` | required only for withdrawn status |
-| `created_at` | required UTC timestamp |
-| `updated_at` | required UTC timestamp |
+| `assessment_id` | UUID-format `CHAR(36)` primary/foreign key |
+| `consent_status` | `VARCHAR(16)` not null; `not_granted`, `granted`, or `withdrawn` |
+| `consent_text_version` | `VARCHAR(64)` nullable |
+| `granted_at` | `DATETIME(3)` nullable |
+| `withdrawn_at` | `DATETIME(3)` nullable |
+| `created_at` | `DATETIME(3)` not null |
+| `updated_at` | `DATETIME(3)` not null |
 
-Status coherence:
+Status coherence check:
 
-- `not_granted`: grant and withdrawal timestamps are null;
-- `granted`: grant timestamp and text version are present; withdrawal timestamp is null;
-- `withdrawn`: grant and withdrawal timestamps and text version are present;
-- withdrawal cannot precede grant.
+- `not_granted`: text version, grant time, and withdrawal time are null;
+- `granted`: text version and grant time are present; withdrawal time is null;
+- `withdrawn`: text version, grant time, and withdrawal time are present;
+- `withdrawn_at >= granted_at`.
 
-The future persistence transaction should create this row as `not_granted` when creating an assessment. The database cannot enforce reverse one-to-one existence, so PR #8 must enforce that operational invariant.
+PR #8 will create this row as `not_granted` in the assessment-creation transaction. The database cannot enforce reverse one-to-one existence, so the later transaction layer owns that invariant.
 
-Research consent does not authorize marketing and marketing consent does not authorize research.
+Research consent does not authorize marketing; marketing consent does not authorize research.
 
-## 5.5 `schema_migrations`
+### 5.5 `schema_migrations`
 
-Purpose: repository-controlled audit record for applied migrations.
+Purpose: repository-controlled audit of applied migrations.
 
-Required columns:
-
-| Column | Contract |
+| Column | SQL contract |
 |---|---|
-| `version` | migration identifier and primary key, such as `0001` |
-| `filename` | exact repository migration filename |
-| `checksum_sha256` | lowercase SHA-256 of the applied migration file |
-| `applied_at` | required UTC timestamp |
+| `version` | `VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin` primary key |
+| `filename` | `VARCHAR(255)` not null and unique |
+| `checksum_sha256` | `CHAR(64) CHARACTER SET ascii COLLATE ascii_bin` not null |
+| `applied_at` | `DATETIME(3)` not null |
 
-Migration execution tooling, introduced now or later, must reject:
+Migration tooling must reject reused versions, filename mismatches, checksum mismatches, and missing earlier migrations.
 
-- a reused version with a different filename;
-- an applied migration whose current checksum differs from the recorded checksum;
-- out-of-order application when an earlier migration is missing.
+Merged migration files are immutable. Corrections use a new migration.
 
-Merged migration files are immutable. Corrections use a new migration rather than rewriting an applied migration.
+## 6. Lifecycle Contract
 
-## 6. Lifecycle and Immutability Contract
+### Draft
 
-### 6.1 Draft creation
+A later transaction may create one draft assessment, one complete or partial profile snapshot, zero to 40 answers, and one `not_granted` research-consent row.
 
-A later API transaction may create:
+### Submission
 
-1. one `assessments` row with `draft` status;
-2. one profile snapshot;
-3. zero to 40 answer rows while the assessment is incomplete;
-4. one research-consent row with `not_granted` status.
-
-PR #7 does not implement this transaction.
-
-### 6.2 Submission
-
-A later submission transaction may transition `draft` to `submitted` only after validating:
+PR #8 may transition draft to submitted only after atomically validating:
 
 - `instrument_id = BSTI-40`;
 - `instrument_version = V0.4.3`;
-- one complete required profile snapshot;
-- required report-processing consent evidence;
-- exactly 40 answer rows;
-- item identifiers exactly 1 through 40;
-- all answer values are integers from 1 through 5.
+- profile exists, is not redacted, and contains all required fields;
+- report-processing consent evidence exists;
+- exactly 40 answer rows exist;
+- item IDs are exactly 1–40;
+- all values are integers 1–5.
 
-The transition and validation must be atomic in PR #8.
+### Submitted immutability
 
-### 6.3 Submitted immutability
+After submission, the backend rejects changes to instrument identity, version, profile facts, answers, and submission time.
 
-After submission, the backend must reject changes to:
+Research consent may still move from granted to withdrawn before irreversible anonymization. Profile redaction is a privacy-governance operation, not an ordinary edit, and requires separate authorization and audit handling in a later PR.
 
-- instrument identity or version;
-- profile snapshot;
-- answer rows;
-- submission timestamp.
+### Voiding
 
-Research consent may still move from `granted` to `withdrawn` before irreversible anonymization. That consent change does not modify the submitted assessment facts.
-
-### 6.4 Voiding
-
-Only a submitted assessment may become voided.
-
-A voided assessment:
-
-- remains in the operational database for audit;
-- is not restored to submitted or draft;
-- is excluded from new report delivery;
-- is excluded from future research projection even if research consent was previously granted;
-- retains reason and actor audit metadata.
-
-PR #7 defines the data contract. PR #8 implements authorization and transaction behavior.
+Only submitted assessments may become voided. Voided assessments remain for audit, cannot be restored, receive no new report delivery, and are excluded from future research projection.
 
 ## 7. Anonymous Research Projection Boundary
 
-PR #7 does not create a research table or export.
+PR #7 creates no research table or export.
 
-A future research projection may consider a record only when:
+Future eligibility requires:
 
 ```text
 assessment.status = submitted
 AND research_consent.consent_status = granted
-AND assessment.status != voided
+AND profile_snapshot.redacted_at IS NULL
 ```
 
-The future research layer must not contain:
+A voided assessment is ineligible because its status is no longer submitted.
 
-- display name;
-- phone, email, WeChat, or other contact identifiers;
+A future research layer must not contain:
+
+- name or contact identifiers;
 - business entity name;
 - free-form profile text;
-- IP address or device information;
-- exact operational submission timestamp;
+- IP or device information;
+- exact operational submission time;
 - operational `assessment_id`;
-- a reversible mapping key back to the operational database.
+- reversible mapping keys.
 
-Permitted future research dimensions, after privacy-risk review, may include:
+Permitted future dimensions, after privacy-risk review, may include instrument version, item/answer values, coarse industry, revenue and headcount bands, role category, and coarse collection period.
 
-- instrument version;
-- item identifier and answer value;
-- coarse industry bucket;
-- revenue band;
-- headcount band;
-- role category;
-- coarse collection period.
-
-Future research publication or model use must define minimum group sizes, rare-combination suppression, and re-identification-risk review. Those controls are not implemented in PR #7.
+Future research publication or model use must define minimum group sizes, rare-combination suppression, and re-identification-risk review. PR #7 implements none of those processes.
 
 ## 8. Migration Contract
 
-### 8.1 Initial migration
-
-`0001_initial_bsti_schema.up.sql` creates, in dependency order:
+`0001_initial_bsti_schema.up.sql` creates, in order:
 
 1. `schema_migrations`;
 2. `assessments`;
@@ -399,89 +316,62 @@ Future research publication or model use must define minimum group sizes, rare-c
 4. `assessment_answers`;
 5. `assessment_research_consents`.
 
-`0001_initial_bsti_schema.down.sql` drops the application tables in reverse dependency order and drops `schema_migrations` last.
+`0001_initial_bsti_schema.down.sql` drops application tables in reverse dependency order and drops `schema_migrations` last.
 
-### 8.2 Repeatability proof
+CI must prove on a disposable MySQL 8 instance:
 
-CI must prove on an isolated MySQL 8 instance:
+1. apply `up` to a clean database;
+2. inspect required tables, columns, keys, indexes, and checks;
+3. insert representative legal records;
+4. prove illegal item IDs and answer values fail;
+5. prove duplicate answers fail;
+6. prove incoherent lifecycle, consent, marketing, and redaction records fail;
+7. apply `down` and prove removal;
+8. apply `up` again and prove the recreated schema matches.
 
-1. clean database;
-2. apply `up`;
-3. inspect required tables, columns, keys, indexes, and checks;
-4. insert representative legal records;
-5. prove illegal item IDs and answer values fail;
-6. prove duplicate answers fail;
-7. apply `down`;
-8. prove the schema is removed;
-9. apply `up` again;
-10. prove the recreated schema matches the contract.
+The test database contains no production data and has no live cloud dependency.
 
-The test database must be disposable and must contain no production data.
+Permanent repository tests must also verify:
 
-### 8.3 Repository checks
-
-Permanent tests must also verify:
-
-- only expected migration filenames exist;
-- migrations are numerically ordered;
-- no credential, real environment ID, host, username, or password appears;
-- no trigger, stored procedure, score, quadrant, report compiler, research export, person master, organization master, customer master, or tenant master is introduced;
-- existing frozen platform contracts remain unchanged;
+- expected migration filenames and ordering;
+- absence of credentials, real environment IDs, hosts, usernames, and passwords;
+- absence of triggers, stored procedures, scores, quadrant logic, report compilation, research exports, and master identity entities;
+- existing frozen platform contracts are unchanged;
 - PR #6 capabilities remain disabled.
 
 ## 9. Error and Rollback Principles
 
-- Migration failure stops immediately and returns a non-zero exit status;
-- CI must expose the failing migration version without printing credentials;
-- partial schema application is treated as failure and the disposable database is discarded;
-- production deployment procedures must later back up and verify restore capability before applying migrations;
+- migration failure returns non-zero immediately;
+- logs may name the migration version but never print credentials;
+- partial schema application in CI causes the disposable database to be discarded;
 - PR #7 does not claim transactional DDL rollback across all MySQL operations;
-- the down migration is a development and pre-deployment verification mechanism, not permission to destroy production data.
+- the down migration is for development and pre-deployment verification, not permission to destroy production data;
+- production procedures must later back up and prove restore capability before applying migrations.
 
 ## 10. Security and Privacy Boundaries
 
-PR #7 must not commit:
+PR #7 must not commit database passwords, connection strings, CloudBase environment IDs, TencentDB IDs, private addresses, or real personal/enterprise data.
 
-- database passwords;
-- connection strings;
-- CloudBase environment IDs;
-- TencentDB instance IDs;
-- private network addresses;
-- real personal or enterprise data;
-- real consent records.
-
-The schema must preserve separation between:
-
-- assessment lifecycle;
-- identifying/context profile snapshot;
-- authoritative answers;
-- optional research consent.
-
-No database object may expose a public report token or create a public report URL in PR #7.
+The schema separates lifecycle, profile snapshot, authoritative answers, and optional research consent. It creates no public report token or public report URL.
 
 ## 11. Testing Strategy
 
-The PR #7 permanent verification set must include:
-
-1. **Static data-model contract test**
+1. **Static contract test**
    - expected files and tables;
-   - no forbidden entities or fields;
-   - frozen authority boundaries;
-   - research projection remains unimplemented.
+   - exact authority and entity boundaries;
+   - no research projection implementation;
+   - no live configuration or secrets.
 
-2. **MySQL migration integration test**
-   - `up → down → up` against disposable MySQL 8;
-   - constraint and foreign-key verification;
-   - legal and illegal fixture cases;
-   - no live cloud dependency.
+2. **MySQL integration test**
+   - isolated MySQL 8;
+   - `up → down → up`;
+   - schema inspection and legal/illegal fixtures.
 
 3. **Existing regression suite**
-   - all profile, mobile, continuation, scoring, report, cause-cost, platform, backend API, and deployment guardrail tests remain green;
-   - `index.html`, scoring, report compiler, and runtime API behavior remain untouched unless a test-only workflow entry is required.
+   - all existing profile, mobile, continuation, scoring, report, cause-cost, platform, backend API, and deployment guardrail tests remain green;
+   - `index.html`, scoring, report compilation, and runtime API behavior remain untouched apart from a test-workflow entry.
 
-## 12. Files Expected in PR #7
-
-Minimum expected additions or modifications:
+## 12. Expected PR #7 Files
 
 ```text
 backend/database/README.md
@@ -495,50 +385,46 @@ docs/superpowers/specs/2026-08-01-bsti-mysql-schema-migration-contract-design.md
 docs/superpowers/plans/2026-08-01-bsti-mysql-schema-migration-contract-plan.md
 ```
 
-A small CI-only helper is permitted if required for deterministic MySQL inspection. It must remain dependency-light and must not become a production migration service.
+A small CI-only helper is permitted only when needed for deterministic MySQL inspection.
 
 ## 13. Explicit Non-Goals
 
 PR #7 does not implement:
 
-- a real CloudBase or TencentDB environment;
-- database provisioning;
+- real CloudBase/TencentDB resources or database provisioning;
 - runtime database connection;
-- assessment create, save, submit, or void endpoints;
-- frontend-to-backend submission;
-- production persistence enablement;
-- report snapshots;
-- public report tokens;
+- create, save, submit, redact, or void endpoints;
+- frontend submission or production persistence;
+- report snapshots or public report tokens;
 - backend scoring or report compilation;
 - research tables, export, analysis, publication, or model training;
-- personal, organization, customer, account, or tenant master records;
+- person, organization, customer, account, or tenant masters;
 - cross-assessment linking;
-- login, OAuth, WeChat, WeCom callbacks, CRM, booking, payment, or Eliy interpretation;
-- production legal-text finalization;
-- production domain or launch deployment.
+- login, OAuth, WeChat/WeCom callbacks, CRM, booking, payment, or Eliy;
+- production legal closure, domain, or deployment.
 
 ## 14. Acceptance Criteria
 
 PR #7 is complete only when:
 
-- the four operational tables and `schema_migrations` are created by versioned SQL;
-- the schema matches every approved product decision in this design;
-- one row per item is the only authoritative answer representation;
-- profile snapshot and research consent are separate one-to-one records;
-- no person or organization master entity exists;
-- state and timestamp check constraints reject structurally incoherent records;
-- the isolated MySQL 8 `up → down → up` proof passes;
-- illegal answer ranges and duplicates are rejected;
-- no real environment, database, credential, or customer data is used;
-- the runtime capabilities remain submission-disabled and persistence-disabled;
-- all pre-existing BSTI regression tests remain green;
+- versioned SQL creates the four operational tables and `schema_migrations`;
+- every approved product decision is represented;
+- one row per item is the only authoritative answer format;
+- profile and research consent are separate one-to-one records;
+- no master identity entity exists;
+- structurally incoherent status, consent, marketing, redaction, item, and answer records are rejected;
+- profile redaction is structurally possible without altering answers or assessment audit identity;
+- isolated MySQL 8 `up → down → up` passes;
+- no real environment, credential, or customer data is used;
+- runtime submission and persistence capabilities remain disabled;
+- all existing BSTI tests remain green;
 - the PR remains unmerged until founder acceptance.
 
-## 15. Position in the Launch Sequence
+## 15. Launch Sequence
 
 After PR #7:
 
-- **PR #8** implements assessment submission and persistence transactions against this contract while preserving browser-authoritative scoring and report compilation;
-- **PR #9** performs production-environment creation, migration, frontend connection, legal closure, backup/restore verification, domain configuration, end-to-end launch rehearsal, and rollback preparation.
+- **PR #8** implements assessment submission, persistence, consent, redaction, and void transactions while preserving browser-authoritative scoring and report compilation;
+- **PR #9** creates and verifies the production environment, applies migrations, connects the frontend, completes legal/domain/backup/restore controls, and performs launch and rollback rehearsal.
 
-Account systems, cross-assessment history, public report tokens, research pipelines, management dashboards, CRM, payment, and Eliy remain outside the minimum launch path.
+Accounts, cross-assessment history, public report tokens, research pipelines, dashboards, CRM, payment, and Eliy remain outside the minimum launch path.
