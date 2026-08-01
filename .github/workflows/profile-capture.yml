@@ -25,6 +25,7 @@ jobs:
 
       - name: Run frozen contract tests
         run: |
+          node tests/mysql-schema-migration-contract.mjs
           node tests/backend-api-skeleton-contract.mjs
           node tests/backend-deployment-static-contract.mjs
           node tests/report-continuation-contract.mjs
