@@ -9,6 +9,10 @@
     "timestampsUtc": true,
     "uuidStorage": "CHAR(36)"
   },
+  "migrations": [
+    "0001_initial_bsti_schema",
+    "0002_add_submission_fingerprint"
+  ],
   "tables": [
     "schema_migrations",
     "assessments",
@@ -26,7 +30,14 @@
     ],
     "submittedImmutable": true,
     "voidedTerminal": true,
-    "retakeCreatesNewAssessment": true
+    "retakeCreatesNewAssessment": true,
+    "submissionFingerprint": {
+      "algorithm": "sha256",
+      "format": "lowercase-hex-64",
+      "excludesAssessmentId": true,
+      "excludesServerTimestamps": true,
+      "researchExportable": false
+    }
   },
   "answers": {
     "authoritativeRepresentation": "one-row-per-item",
