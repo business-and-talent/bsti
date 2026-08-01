@@ -1,6 +1,6 @@
 # BSTI PR #8｜Assessment Submission and Persistence Transaction Design
 
-**Status:** Founder-approved design  
+**Status:** Founder-approved and self-reviewed  
 **Date:** 2026-08-02  
 **Repository:** `business-and-talent/bsti`  
 **Branch:** `feat/assessment-submission-persistence-v01`  
@@ -55,7 +55,7 @@ POST /v1/assessments
 Content-Type: application/json
 ```
 
-Maximum request body: 64 KiB.
+`application/json` with an optional charset parameter is accepted. Maximum request body: 64 KiB.
 
 When submission is disabled, the route exists but returns `503 SUBMISSION_DISABLED` without parsing or storing the body.
 
@@ -95,9 +95,11 @@ When submission is disabled, the route exists but returns `503 SUBMISSION_DISABL
 
 The real request contains exactly 40 answer objects, one for each `itemId` from 1 through 40.
 
+Every object is closed: unknown properties at the top level or inside `instrument`, `profile`, `consents`, or an answer object cause `422 INVALID_SUBMISSION`.
+
 ### 3.3 Profile-code contract
 
-The implementation creates one machine-readable profile-options contract from the option codes already emitted by the current frontend. It must preserve the existing codes exactly and must not rename, broaden, or invent customer-facing classifications.
+The implementation creates `platform/contracts/submission-profile-options.v0.1.json` from the option codes already emitted by the current frontend. A permanent contract test compares the new file with the current embedded frontend values. The implementation must preserve those codes exactly and must not rename, broaden, or invent customer-facing classifications.
 
 The contract contains the accepted sets for:
 
@@ -106,10 +108,19 @@ The contract contains the accepted sets for:
 - `headcountBand`;
 - `industryCode`.
 
+String normalization and limits:
+
+- trim leading and trailing whitespace;
+- do not rewrite internal whitespace or customer text;
+- `displayName`: 1–128 characters after trim;
+- `businessUnit`: 1–255 characters after trim;
+- `roleOther`: 1–122 characters after trim when required, so the stored `other:` prefix remains within the 128-character database column;
+- `industryOther`: 1–255 characters after trim when required.
+
 Conditional rules:
 
-- `roleOther` is required and non-empty only when `roleCode = other`; otherwise it must be empty;
-- `industryOther` is required and non-empty only when `industryCode = other`; otherwise it must be empty.
+- `roleOther` is required and non-empty only when `roleCode = other`; otherwise it must be the empty string;
+- `industryOther` is required and non-empty only when `industryCode = other`; otherwise it must be the empty string.
 
 Database mapping for `current_role`:
 
@@ -200,7 +211,7 @@ All errors retain the existing JSON envelope:
 }
 ```
 
-Validation failures may add a bounded `details` array containing only field paths and stable codes; it must not echo submitted personal information or answers.
+Validation failures may add at most 20 `details` entries. Each entry contains only a field path and stable code; it must not echo submitted personal information or answers.
 
 Required mappings:
 
@@ -222,7 +233,7 @@ Internal database, stack, SQL, credential, host, and request-body details must n
 
 ### 5.1 Client identifier
 
-`assessmentId` must be a canonical RFC 4122 version-4 UUID. PR #9 will generate it with browser `crypto.randomUUID()` before submission.
+`assessmentId` must be a lowercase canonical RFC 4122 version-4 UUID. PR #9 will generate it with browser `crypto.randomUUID()` before submission.
 
 ### 5.2 Canonical fingerprint
 
@@ -274,6 +285,13 @@ and a named check constraint requiring lowercase hexadecimal SHA-256 format.
 The down migration removes the check and column.
 
 No unique index is added: two independently identified assessments may legitimately contain identical answers and profile values.
+
+Migration precondition:
+
+- runtime persistence has never been enabled before PR #8;
+- `assessments` must therefore be empty before applying `0002`;
+- CI verifies the empty-table precondition;
+- if a non-disposable environment contains rows, migration must stop rather than silently invent fingerprints or rewrite historic data.
 
 PR #8 updates the machine-readable data-model contract and CI to apply migrations `0001` then `0002`, reverse `0002` then `0001`, and recreate both.
 
@@ -358,18 +376,19 @@ When `BSTI_SUBMISSION_ENABLED=false`:
 - `/v1/capabilities` reports submission and persistence false;
 - `POST /v1/assessments` returns `503 SUBMISSION_DISABLED`.
 
-When `BSTI_SUBMISSION_ENABLED=true`, all database variables are required:
+When `BSTI_SUBMISSION_ENABLED=true`, these values are required and non-empty:
 
 ```text
 BSTI_DB_HOST
-BSTI_DB_PORT
 BSTI_DB_NAME
 BSTI_DB_USER
 BSTI_DB_PASSWORD
-BSTI_DB_CONNECTION_LIMIT
 ```
 
-`BSTI_DB_CONNECTION_LIMIT` defaults to a small bounded value suitable for a serverless function and must be validated as a positive integer.
+Optional bounded values:
+
+- `BSTI_DB_PORT`: default `3306`, integer 1–65535;
+- `BSTI_DB_CONNECTION_LIMIT`: default `4`, integer 1–16.
 
 Capabilities become configuration-derived:
 
