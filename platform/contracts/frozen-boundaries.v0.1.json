@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "p0-frozen-boundaries-v0.1",
+  "instrument": {
+    "id": "BSTI-40",
+    "version": "V0.4.3"
+  },
+  "report": {
+    "id": "BSTM",
+    "rulesVersion": "V0.4.4.1",
+    "authoritativeCompiler": "browser"
+  },
+  "scoreInputs": [
+    "answers"
+  ],
+  "contextOnlyInputs": [
+    "revenueBand",
+    "headcountBand"
+  ],
+  "backend": {
+    "allowedResponsibilities": [
+      "validate",
+      "store",
+      "associate",
+      "control_access"
+    ],
+    "reimplementsScoring": false,
+    "recompilesReports": false
+  },
+  "handoff": {
+    "configurable": true,
+    "providerNeutral": true
+  },
+  "excludedP0Integrations": [
+    "wechat_oauth",
+    "wecom_callbacks",
+    "eliy_interpretation",
+    "full_crm",
+    "booking",
+    "payment",
+    "automated_qualification"
+  ]
+}
