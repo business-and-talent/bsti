@@ -21,5 +21,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run assessment submission validation contract
-        run: node tests/assessment-submission-validation-contract.mjs
+      - name: Run assessment submission contracts
+        run: |
+          node tests/assessment-submission-validation-contract.mjs
+          node tests/assessment-submission-http-contract.mjs
