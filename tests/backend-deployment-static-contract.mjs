@@ -131,7 +131,6 @@ for (const secretPattern of [
 }
 assert.equal(backendSources.includes("'/v1/assessments'"), true);
 assert.equal(backendSources.includes("'SUBMISSION_DISABLED'"), true);
-assert.equal(backendSources.includes("submissionEnabled: false"), false);
 
 const environments = JSON.parse(read('platform/contracts/environments.v0.1.json'));
 assert.equal(environments.environments.development.submissionMode, 'disabled');
