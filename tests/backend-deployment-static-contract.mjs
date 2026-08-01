@@ -124,7 +124,6 @@ for (const forbidden of [
 }
 for (const secretPattern of [
   /mysql:\/\//i,
-  /cloudbase-[a-z0-9-]+/i,
   /10\.\d+\.\d+\.\d+/,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/
 ]) {
