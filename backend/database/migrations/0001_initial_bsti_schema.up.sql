@@ -78,10 +78,10 @@ CREATE TABLE assessment_profile_snapshots (
   marketing_consent_granted BOOLEAN NOT NULL DEFAULT FALSE,
   marketing_consent_text_version VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
   marketing_consent_at DATETIME(3) NULL,
-  anonymized_at DATETIME(3) NULL,
-  anonymization_reason_code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-  anonymized_by_actor_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
-  anonymized_by_actor_reference VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  redacted_at DATETIME(3) NULL,
+  redaction_reason_code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  redacted_by_actor_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  redacted_by_actor_reference VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (assessment_id),
@@ -108,10 +108,10 @@ CREATE TABLE assessment_profile_snapshots (
   CONSTRAINT chk_profile_snapshots_identity_state
     CHECK (
       (
-        anonymized_at IS NULL
-        AND anonymization_reason_code IS NULL
-        AND anonymized_by_actor_type IS NULL
-        AND anonymized_by_actor_reference IS NULL
+        redacted_at IS NULL
+        AND redaction_reason_code IS NULL
+        AND redacted_by_actor_type IS NULL
+        AND redacted_by_actor_reference IS NULL
         AND display_name IS NOT NULL
         AND CHAR_LENGTH(TRIM(display_name)) > 0
         AND business_entity_name IS NOT NULL
@@ -136,10 +136,10 @@ CREATE TABLE assessment_profile_snapshots (
       )
       OR
       (
-        anonymized_at IS NOT NULL
-        AND anonymization_reason_code IS NOT NULL
-        AND anonymized_by_actor_type IS NOT NULL
-        AND anonymized_by_actor_reference IS NOT NULL
+        redacted_at IS NOT NULL
+        AND redaction_reason_code IS NOT NULL
+        AND redacted_by_actor_type IS NOT NULL
+        AND redacted_by_actor_reference IS NOT NULL
         AND display_name IS NULL
         AND business_entity_name IS NULL
         AND current_role IS NULL
