@@ -12,6 +12,19 @@ permissions:
 jobs:
   contract-tests:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bsti_contract
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,6 +47,223 @@ jobs:
           node tests/profile-capture-static-contract.mjs
           node tests/report-v0441-static-contract.mjs
           node tests/report-v0441-cause-cost.mjs
+
+      - name: Verify MySQL schema migration
+        env:
+          MYSQL_PWD: root
+        run: |
+          set -euo pipefail
+
+          if ! command -v mysql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq mysql-client
+          fi
+
+          mysql_cmd=(
+            mysql
+            --protocol=tcp
+            --host=127.0.0.1
+            --port=3306
+            --user=root
+            --database=bsti_contract
+            --batch
+            --skip-column-names
+          )
+
+          up=backend/database/migrations/0001_initial_bsti_schema.up.sql
+          down=backend/database/migrations/0001_initial_bsti_schema.down.sql
+
+          "${mysql_cmd[@]}" < "$up"
+
+          expected_tables="'schema_migrations','assessments','assessment_profile_snapshots','assessment_answers','assessment_research_consents'"
+          table_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
+          test "$table_count" = "5"
+
+          "${mysql_cmd[@]}" <<'SQL'
+          INSERT INTO schema_migrations (
+            version,
+            filename,
+            checksum_sha256,
+            applied_at
+          ) VALUES (
+            '0001',
+            '0001_initial_bsti_schema.up.sql',
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            '2026-08-01 00:00:00.000'
+          );
+
+          INSERT INTO assessments (
+            id,
+            instrument_id,
+            instrument_version,
+            status,
+            started_at,
+            submitted_at,
+            voided_at,
+            void_reason_code,
+            voided_by_actor_type,
+            voided_by_actor_reference,
+            created_at,
+            updated_at
+          ) VALUES (
+            '00000000-0000-4000-8000-000000000001',
+            'BSTI-40',
+            'V0.4.3',
+            'draft',
+            '2026-08-01 00:00:00.000',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 00:00:00.000'
+          );
+
+          INSERT INTO assessment_profile_snapshots (
+            assessment_id,
+            display_name,
+            business_entity_name,
+            current_role,
+            industry_code,
+            industry_other_text,
+            revenue_band,
+            headcount_band,
+            privacy_notice_version,
+            report_usage_notice_version,
+            report_processing_consent_at,
+            marketing_consent_granted,
+            marketing_consent_text_version,
+            marketing_consent_at,
+            anonymized_at,
+            anonymization_reason_code,
+            anonymized_by_actor_type,
+            anonymized_by_actor_reference,
+            created_at,
+            updated_at
+          ) VALUES (
+            '00000000-0000-4000-8000-000000000001',
+            'Contract Test',
+            'Contract Entity',
+            'owner',
+            'professional_services',
+            NULL,
+            'revenue_band_1',
+            'headcount_band_1',
+            'privacy-v0.1',
+            'report-usage-v0.1',
+            '2026-08-01 00:00:00.000',
+            FALSE,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 00:00:00.000'
+          );
+
+          INSERT INTO assessment_research_consents (
+            assessment_id,
+            consent_status,
+            consent_text_version,
+            granted_at,
+            withdrawn_at,
+            created_at,
+            updated_at
+          ) VALUES (
+            '00000000-0000-4000-8000-000000000001',
+            'not_granted',
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 00:00:00.000'
+          );
+
+          INSERT INTO assessments (
+            id,
+            instrument_id,
+            instrument_version,
+            status,
+            started_at,
+            submitted_at,
+            voided_at,
+            void_reason_code,
+            voided_by_actor_type,
+            voided_by_actor_reference,
+            created_at,
+            updated_at
+          ) VALUES (
+            '00000000-0000-4000-8000-000000000003',
+            'BSTI-40',
+            'V0.4.3',
+            'draft',
+            '2026-08-01 00:00:00.000',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 00:00:00.000'
+          );
+          SQL
+
+          answer_values=""
+          for item_id in $(seq 1 40); do
+            row="('00000000-0000-4000-8000-000000000001',${item_id},3,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000')"
+            if [ -z "$answer_values" ]; then
+              answer_values="$row"
+            else
+              answer_values="${answer_values},${row}"
+            fi
+          done
+          "${mysql_cmd[@]}" -e "INSERT INTO assessment_answers (assessment_id,item_id,answer_value,created_at,updated_at) VALUES ${answer_values};"
+
+          answer_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM assessment_answers WHERE assessment_id = '00000000-0000-4000-8000-000000000001';")"
+          test "$answer_count" = "40"
+
+          expect_mysql_failure() {
+            local label="$1"
+            local statement="$2"
+            if "${mysql_cmd[@]}" -e "$statement" >/tmp/bsti-mysql-expected-failure.log 2>&1; then
+              echo "Expected MySQL failure succeeded: ${label}" >&2
+              exit 1
+            fi
+            grep -q "ERROR" /tmp/bsti-mysql-expected-failure.log
+          }
+
+          expect_mysql_failure \
+            "duplicate answer" \
+            "INSERT INTO assessment_answers (assessment_id,item_id,answer_value,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000001',1,3,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          expect_mysql_failure \
+            "item id outside 1 through 40" \
+            "INSERT INTO assessment_answers (assessment_id,item_id,answer_value,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000001',41,3,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          expect_mysql_failure \
+            "answer value outside 1 through 5" \
+            "INSERT INTO assessment_answers (assessment_id,item_id,answer_value,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000001',1,6,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          expect_mysql_failure \
+            "submitted assessment without submitted timestamp" \
+            "INSERT INTO assessments (id,instrument_id,instrument_version,status,started_at,submitted_at,voided_at,void_reason_code,voided_by_actor_type,voided_by_actor_reference,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000002','BSTI-40','V0.4.3','submitted','2026-08-01 00:00:00.000',NULL,NULL,NULL,NULL,NULL,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          expect_mysql_failure \
+            "granted research consent without grant evidence" \
+            "INSERT INTO assessment_research_consents (assessment_id,consent_status,consent_text_version,granted_at,withdrawn_at,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000003','granted','research-v0.1',NULL,NULL,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          "${mysql_cmd[@]}" < "$down"
+          remaining_tables="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
+          test "$remaining_tables" = "0"
+
+          "${mysql_cmd[@]}" < "$up"
+          recreated_tables="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
+          test "$recreated_tables" = "5"
+
+          echo "MySQL schema migration proof: PASS"
 
       - name: Smoke test backend process
         run: |
