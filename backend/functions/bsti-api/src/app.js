@@ -36,11 +36,6 @@ function routePath(request) {
   return new URL(request.url ?? '/', 'http://localhost').pathname;
 }
 
-function methodNotAllowed(response, allowedMethod) {
-  sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
-  response.setHeader?.('Allow', allowedMethod);
-}
-
 function sendMethodNotAllowed(response, allowedMethod) {
   sendJson(response, 405, {
     error: {
