@@ -1,0 +1,21 @@
+{
+  "version": "2.0",
+  "envId": "replace-with-cloudbase-environment-id",
+  "functionRoot": "backend/functions",
+  "functions": [
+    {
+      "name": "bsti-api",
+      "type": "HTTP",
+      "runtime": "Nodejs20.19",
+      "timeout": 5,
+      "memorySize": 256,
+      "installDependency": false,
+      "envVariables": {
+        "BSTI_RUNTIME_ENV": "development",
+        "BSTI_SUBMISSION_ENABLED": "false",
+        "BSTI_API_VERSION": "v1",
+        "PORT": "9000"
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+
+export PORT="${PORT:-9000}"
+exec /var/lang/node20/bin/node index.js

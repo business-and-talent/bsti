@@ -25,12 +25,58 @@ jobs:
 
       - name: Run frozen contract tests
         run: |
+          node tests/backend-api-skeleton-contract.mjs
+          node tests/backend-deployment-static-contract.mjs
           node tests/report-continuation-contract.mjs
           node tests/wechat-mobile-terminology-contract.mjs
           node tests/p0-platform-foundation-contract.mjs
           node tests/profile-capture-static-contract.mjs
           node tests/report-v0441-static-contract.mjs
           node tests/report-v0441-cause-cost.mjs
+
+      - name: Smoke test backend process
+        run: |
+          pushd backend/functions/bsti-api
+          npm start > /tmp/bsti-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:9000/health > /tmp/bsti-health.json; then
+              ready=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$ready" = true
+          curl -fsS http://127.0.0.1:9000/v1/capabilities > /tmp/bsti-capabilities.json
+
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+
+          assert.deepEqual(JSON.parse(fs.readFileSync('/tmp/bsti-health.json', 'utf8')), {
+            status: 'ok',
+            service: 'bsti-api',
+            environment: 'development',
+            submissionEnabled: false
+          });
+          assert.deepEqual(JSON.parse(fs.readFileSync('/tmp/bsti-capabilities.json', 'utf8')), {
+            apiVersion: 'v1',
+            healthCheck: true,
+            assessmentSubmission: false,
+            persistence: false,
+            backendScoring: false,
+            backendReportCompilation: false
+          });
+          NODE
+
+          kill "$api_pid"
+          wait "$api_pid" || true
+          trap - EXIT
+          popd
+
           git diff --check
           git status --short
           test -z "$(git status --porcelain)"
