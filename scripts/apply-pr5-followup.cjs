@@ -111,9 +111,9 @@ updateEncodedModule('renderResults', (source) => {
   );
   source = replaceOnce(
     source,
-    '<p class="eyebrow">BSTM</p><h2>四象限张力雷达图</h2>',
-    '<p class="eyebrow">经营系统张力图</p><h2>四象限张力雷达图</h2>',
-    'radar heading'
+    '<p class="eyebrow">BSTM</p>',
+    '<p class="eyebrow">经营系统张力图</p>',
+    'radar eyebrow'
   );
   source = source.replace('aria-label="BSTM四象限雷达图', 'aria-label="经营系统张力图四象限雷达图');
   return source;
