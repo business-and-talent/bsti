@@ -99,9 +99,9 @@ for (const table of contract.tables) {
   assert.match(up, new RegExp(`CREATE\\s+TABLE\\s+${table}\\b`, 'i'), `Missing table ${table}`);
 }
 
-assert.match(up, /ENGINE\s*=\s*InnoDB/gi);
-assert.match(up, /DEFAULT\s+CHARSET\s*=\s*utf8mb4/gi);
-assert.match(up, /DATETIME\(3\)/g);
+assert.equal((up.match(/ENGINE\s*=\s*InnoDB/gi) ?? []).length, 5, 'Every table must use InnoDB');
+assert.equal((up.match(/DEFAULT\s+CHARSET\s*=\s*utf8mb4/gi) ?? []).length, 5, 'Every table must use utf8mb4');
+assert.ok((up.match(/DATETIME\(3\)/g) ?? []).length >= 15, 'Millisecond timestamps must use DATETIME(3)');
 assert.match(up, /CHECK\s*\(\s*item_id\s+BETWEEN\s+1\s+AND\s+40\s*\)/i);
 assert.match(up, /CHECK\s*\(\s*answer_value\s+BETWEEN\s+1\s+AND\s+5\s*\)/i);
 assert.match(up, /PRIMARY\s+KEY\s*\(\s*assessment_id\s*,\s*item_id\s*\)/i);
@@ -109,11 +109,42 @@ assert.match(up, /CREATE\s+TABLE\s+assessment_profile_snapshots[\s\S]*?PRIMARY\s
 assert.match(up, /CREATE\s+TABLE\s+assessment_research_consents[\s\S]*?PRIMARY\s+KEY\s*\(\s*assessment_id\s*\)/i);
 assert.match(up, /status\s+VARCHAR\([^)]*\)[\s\S]*?CHECK\s*\([\s\S]*?'draft'[\s\S]*?'submitted'[\s\S]*?'voided'/i);
 assert.match(up, /consent_status\s+VARCHAR\([^)]*\)[\s\S]*?CHECK\s*\([\s\S]*?'not_granted'[\s\S]*?'granted'[\s\S]*?'withdrawn'/i);
-assert.match(up, /ON\s+DELETE\s+RESTRICT\s+ON\s+UPDATE\s+RESTRICT/gi);
+assert.equal((up.match(/ON\s+DELETE\s+RESTRICT\s+ON\s+UPDATE\s+RESTRICT/gi) ?? []).length, 3, 'All three foreign keys must restrict deletion and update');
 assert.match(up, /anonymized_at\s+DATETIME\(3\)/i);
 assert.match(up, /anonymization_reason_code/i);
 assert.match(up, /anonymized_by_actor_type/i);
 assert.match(up, /anonymized_by_actor_reference/i);
+
+const requiredConstraintNames = [
+  'chk_schema_migrations_checksum',
+  'chk_assessments_status',
+  'chk_assessments_instrument',
+  'chk_assessments_started_before_submission',
+  'chk_assessments_lifecycle',
+  'chk_profile_snapshots_marketing_consent',
+  'chk_profile_snapshots_identity_state',
+  'chk_assessment_answers_item_id',
+  'chk_assessment_answers_value',
+  'chk_research_consents_status',
+  'chk_research_consents_lifecycle'
+];
+for (const constraintName of requiredConstraintNames) {
+  assert.match(up, new RegExp(`CONSTRAINT\\s+${constraintName}\\b`, 'i'), `Missing constraint ${constraintName}`);
+}
+
+const requiredIndexNames = [
+  'uq_schema_migrations_filename',
+  'idx_assessments_status_created_at',
+  'idx_assessments_submitted_at',
+  'idx_profile_snapshots_industry_code',
+  'idx_profile_snapshots_revenue_band',
+  'idx_profile_snapshots_headcount_band',
+  'idx_assessment_answers_item_id',
+  'idx_research_consents_status'
+];
+for (const indexName of requiredIndexNames) {
+  assert.match(up, new RegExp(`\\b${indexName}\\b`, 'i'), `Missing index ${indexName}`);
+}
 
 const migrationFiles = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort();
 assert.deepEqual(migrationFiles, [
