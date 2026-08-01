@@ -72,6 +72,7 @@ jobs:
 
           up=backend/database/migrations/0001_initial_bsti_schema.up.sql
           down=backend/database/migrations/0001_initial_bsti_schema.down.sql
+          migration_checksum="$(sha256sum "$up" | awk '{print $1}')"
 
           "${mysql_cmd[@]}" < "$up"
 
@@ -79,19 +80,28 @@ jobs:
           table_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
           test "$table_count" = "5"
 
-          "${mysql_cmd[@]}" <<'SQL'
-          INSERT INTO schema_migrations (
-            version,
-            filename,
-            checksum_sha256,
-            applied_at
-          ) VALUES (
-            '0001',
-            '0001_initial_bsti_schema.up.sql',
-            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-            '2026-08-01 00:00:00.000'
-          );
+          innodb_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables}) AND engine = 'InnoDB';")"
+          test "$innodb_count" = "5"
 
+          column_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
+          test "$column_count" = "48"
+
+          primary_key_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND table_name IN (${expected_tables}) AND constraint_type = 'PRIMARY KEY';")"
+          test "$primary_key_count" = "5"
+
+          foreign_key_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND table_name IN (${expected_tables}) AND constraint_type = 'FOREIGN KEY';")"
+          test "$foreign_key_count" = "3"
+
+          check_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND table_name IN (${expected_tables}) AND constraint_type = 'CHECK';")"
+          test "$check_count" = "11"
+
+          expected_indexes="'uq_schema_migrations_filename','idx_assessments_status_created_at','idx_assessments_submitted_at','idx_profile_snapshots_industry_code','idx_profile_snapshots_revenue_band','idx_profile_snapshots_headcount_band','idx_assessment_answers_item_id','idx_research_consents_status'"
+          named_index_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(DISTINCT CONCAT(table_name, ':', index_name)) FROM information_schema.statistics WHERE table_schema = DATABASE() AND index_name IN (${expected_indexes});")"
+          test "$named_index_count" = "8"
+
+          "${mysql_cmd[@]}" -e "INSERT INTO schema_migrations (version,filename,checksum_sha256,applied_at) VALUES ('0001','0001_initial_bsti_schema.up.sql','${migration_checksum}','2026-08-01 00:00:00.000');"
+
+          "${mysql_cmd[@]}" <<'SQL'
           INSERT INTO assessments (
             id,
             instrument_id,
@@ -105,7 +115,8 @@ jobs:
             voided_by_actor_reference,
             created_at,
             updated_at
-          ) VALUES (
+          ) VALUES
+          (
             '00000000-0000-4000-8000-000000000001',
             'BSTI-40',
             'V0.4.3',
@@ -118,6 +129,48 @@ jobs:
             NULL,
             '2026-08-01 00:00:00.000',
             '2026-08-01 00:00:00.000'
+          ),
+          (
+            '00000000-0000-4000-8000-000000000003',
+            'BSTI-40',
+            'V0.4.3',
+            'draft',
+            '2026-08-01 00:00:00.000',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 00:00:00.000'
+          ),
+          (
+            '00000000-0000-4000-8000-000000000004',
+            'BSTI-40',
+            'V0.4.3',
+            'submitted',
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 01:00:00.000',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 01:00:00.000'
+          ),
+          (
+            '00000000-0000-4000-8000-000000000005',
+            'BSTI-40',
+            'V0.4.3',
+            'voided',
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 01:00:00.000',
+            '2026-08-01 02:00:00.000',
+            'duplicate',
+            'operator',
+            'contract-test-operator',
+            '2026-08-01 00:00:00.000',
+            '2026-08-01 02:00:00.000'
           );
 
           INSERT INTO assessment_profile_snapshots (
@@ -135,10 +188,10 @@ jobs:
             marketing_consent_granted,
             marketing_consent_text_version,
             marketing_consent_at,
-            anonymized_at,
-            anonymization_reason_code,
-            anonymized_by_actor_type,
-            anonymized_by_actor_reference,
+            redacted_at,
+            redaction_reason_code,
+            redacted_by_actor_type,
+            redacted_by_actor_reference,
             created_at,
             updated_at
           ) VALUES (
@@ -181,35 +234,10 @@ jobs:
             '2026-08-01 00:00:00.000',
             '2026-08-01 00:00:00.000'
           );
-
-          INSERT INTO assessments (
-            id,
-            instrument_id,
-            instrument_version,
-            status,
-            started_at,
-            submitted_at,
-            voided_at,
-            void_reason_code,
-            voided_by_actor_type,
-            voided_by_actor_reference,
-            created_at,
-            updated_at
-          ) VALUES (
-            '00000000-0000-4000-8000-000000000003',
-            'BSTI-40',
-            'V0.4.3',
-            'draft',
-            '2026-08-01 00:00:00.000',
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            '2026-08-01 00:00:00.000',
-            '2026-08-01 00:00:00.000'
-          );
           SQL
+
+          stored_checksum="$("${mysql_cmd[@]}" -e "SELECT checksum_sha256 FROM schema_migrations WHERE version = '0001';")"
+          test "$stored_checksum" = "$migration_checksum"
 
           answer_values=""
           for item_id in $(seq 1 40); do
@@ -252,8 +280,21 @@ jobs:
             "INSERT INTO assessments (id,instrument_id,instrument_version,status,started_at,submitted_at,voided_at,void_reason_code,voided_by_actor_type,voided_by_actor_reference,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000002','BSTI-40','V0.4.3','submitted','2026-08-01 00:00:00.000',NULL,NULL,NULL,NULL,NULL,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
 
           expect_mysql_failure \
+            "voided timestamp before submitted timestamp" \
+            "INSERT INTO assessments (id,instrument_id,instrument_version,status,started_at,submitted_at,voided_at,void_reason_code,voided_by_actor_type,voided_by_actor_reference,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000007','BSTI-40','V0.4.3','voided','2026-08-01 00:00:00.000','2026-08-01 02:00:00.000','2026-08-01 01:00:00.000','invalid','operator','contract-test-operator','2026-08-01 00:00:00.000','2026-08-01 02:00:00.000');"
+
+          expect_mysql_failure \
             "granted research consent without grant evidence" \
             "INSERT INTO assessment_research_consents (assessment_id,consent_status,consent_text_version,granted_at,withdrawn_at,created_at,updated_at) VALUES ('00000000-0000-4000-8000-000000000003','granted','research-v0.1',NULL,NULL,'2026-08-01 00:00:00.000','2026-08-01 00:00:00.000');"
+
+          expect_mysql_failure \
+            "partial profile redaction" \
+            "UPDATE assessment_profile_snapshots SET redacted_at='2026-08-01 03:00:00.000',redaction_reason_code='privacy_request',redacted_by_actor_type='operator',redacted_by_actor_reference='contract-test-operator',updated_at='2026-08-01 03:00:00.000' WHERE assessment_id='00000000-0000-4000-8000-000000000001';"
+
+          "${mysql_cmd[@]}" -e "UPDATE assessment_profile_snapshots SET display_name=NULL,business_entity_name=NULL,current_role=NULL,industry_code=NULL,industry_other_text=NULL,revenue_band=NULL,headcount_band=NULL,redacted_at='2026-08-01 03:00:00.000',redaction_reason_code='privacy_request',redacted_by_actor_type='operator',redacted_by_actor_reference='contract-test-operator',updated_at='2026-08-01 03:00:00.000' WHERE assessment_id='00000000-0000-4000-8000-000000000001';"
+
+          redacted_count="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM assessment_profile_snapshots WHERE assessment_id='00000000-0000-4000-8000-000000000001' AND redacted_at IS NOT NULL AND display_name IS NULL AND business_entity_name IS NULL AND current_role IS NULL AND industry_code IS NULL AND revenue_band IS NULL AND headcount_band IS NULL;")"
+          test "$redacted_count" = "1"
 
           "${mysql_cmd[@]}" < "$down"
           remaining_tables="$("${mysql_cmd[@]}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (${expected_tables});")"
