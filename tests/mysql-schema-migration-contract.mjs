@@ -58,7 +58,7 @@ assert.deepEqual(contract, {
   profileSnapshot: {
     oneToOne: true,
     identifyingFieldsSeparatelyGoverned: true,
-    anonymizationAuditRequired: true,
+    redactionAuditRequired: true,
     scoringInput: false,
     contextOnlyFields: ['revenueBand', 'headcountBand']
   },
@@ -110,10 +110,11 @@ assert.match(up, /CREATE\s+TABLE\s+assessment_research_consents[\s\S]*?PRIMARY\s
 assert.match(up, /status\s+VARCHAR\([^)]*\)[\s\S]*?CHECK\s*\([\s\S]*?'draft'[\s\S]*?'submitted'[\s\S]*?'voided'/i);
 assert.match(up, /consent_status\s+VARCHAR\([^)]*\)[\s\S]*?CHECK\s*\([\s\S]*?'not_granted'[\s\S]*?'granted'[\s\S]*?'withdrawn'/i);
 assert.equal((up.match(/ON\s+DELETE\s+RESTRICT\s+ON\s+UPDATE\s+RESTRICT/gi) ?? []).length, 3, 'All three foreign keys must restrict deletion and update');
-assert.match(up, /anonymized_at\s+DATETIME\(3\)/i);
-assert.match(up, /anonymization_reason_code/i);
-assert.match(up, /anonymized_by_actor_type/i);
-assert.match(up, /anonymized_by_actor_reference/i);
+assert.match(up, /redacted_at\s+DATETIME\(3\)/i);
+assert.match(up, /redaction_reason_code/i);
+assert.match(up, /redacted_by_actor_type/i);
+assert.match(up, /redacted_by_actor_reference/i);
+assert.doesNotMatch(up, /anonymized_at|anonymization_reason_code|anonymized_by_actor/i);
 
 const requiredConstraintNames = [
   'chk_schema_migrations_checksum',
