@@ -138,14 +138,19 @@ scoreAssessment(instrument, state.answers)
 
 ## Naming Revision
 
-`technical_name_zh` and the visible gate eyebrow change from `商业系统张力测量工具` to `经营系统张力测量工具`.
+PR #3 originally changed only `technical_name_zh`. That partial naming decision was superseded by the founder-approved PR #5 terminology correction.
+
+The active Chinese naming contract is now:
+
+- `technical_name_zh`: `经营系统张力测量工具`;
+- construct name: `经营系统张力`;
+- product name: `富老板经营系统张力测试`.
 
 This revision does **not** change:
 
 - `Business System Tension Instrument`;
-- the `BSTI` abbreviation;
-- construct name `商业系统张力`;
-- product name `富老板商业系统张力测试`;
+- `Business System Tension Map`;
+- the `BSTI` or `BSTM` abbreviations;
 - question text, scoring, breakpoints, evidence rules, or report compiler.
 
 ## Compliance Documents

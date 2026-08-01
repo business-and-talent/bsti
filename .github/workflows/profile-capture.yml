@@ -25,6 +25,8 @@ jobs:
 
       - name: Run frozen contract tests
         run: |
+          node tests/report-continuation-contract.mjs
+          node tests/wechat-mobile-terminology-contract.mjs
           node tests/p0-platform-foundation-contract.mjs
           node tests/profile-capture-static-contract.mjs
           node tests/report-v0441-static-contract.mjs
