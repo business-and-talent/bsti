@@ -25,3 +25,4 @@ jobs:
         run: |
           node tests/assessment-submission-validation-contract.mjs
           node tests/assessment-submission-http-contract.mjs
+          node tests/assessment-repository-contract.mjs
