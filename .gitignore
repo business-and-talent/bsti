@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+cloudbaserc.json
+cloudbaserc.json.local
+.cloudbase/
+*.pem
+*.key
+node_modules/
+.DS_Store
