@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "p0-data-model-v0.1",
+  "database": {
+    "engine": "mysql",
+    "majorVersion": 8,
+    "storageEngine": "InnoDB",
+    "characterSet": "utf8mb4",
+    "timestampPrecision": 3,
+    "timestampsUtc": true,
+    "uuidStorage": "CHAR(36)"
+  },
+  "tables": [
+    "schema_migrations",
+    "assessments",
+    "assessment_profile_snapshots",
+    "assessment_answers",
+    "assessment_research_consents"
+  ],
+  "assessment": {
+    "instrumentId": "BSTI-40",
+    "instrumentVersion": "V0.4.3",
+    "statuses": [
+      "draft",
+      "submitted",
+      "voided"
+    ],
+    "submittedImmutable": true,
+    "voidedTerminal": true,
+    "retakeCreatesNewAssessment": true
+  },
+  "answers": {
+    "authoritativeRepresentation": "one-row-per-item",
+    "itemIdMinimum": 1,
+    "itemIdMaximum": 40,
+    "answerMinimum": 1,
+    "answerMaximum": 5,
+    "jsonCopyAllowed": false
+  },
+  "profileSnapshot": {
+    "oneToOne": true,
+    "identifyingFieldsSeparatelyGoverned": true,
+    "anonymizationAuditRequired": true,
+    "scoringInput": false,
+    "contextOnlyFields": [
+      "revenueBand",
+      "headcountBand"
+    ]
+  },
+  "research": {
+    "independentConsent": true,
+    "defaultStatus": "not_granted",
+    "statuses": [
+      "not_granted",
+      "granted",
+      "withdrawn"
+    ],
+    "pipelineImplemented": false,
+    "operationalAssessmentIdExportable": false,
+    "reversibleMappingAllowed": false,
+    "voidedEligible": false
+  },
+  "identity": {
+    "personMaster": false,
+    "organizationMaster": false,
+    "customerMaster": false,
+    "accountMaster": false,
+    "tenantMaster": false,
+    "crossAssessmentResolution": false
+  },
+  "runtimeCapabilitiesRemainDisabled": [
+    "assessmentSubmission",
+    "persistence",
+    "backendScoring",
+    "backendReportCompilation"
+  ],
+  "forbiddenDatabaseResponsibilities": [
+    "scoring",
+    "quadrantTotals",
+    "focusRouting",
+    "reportCompilation",
+    "researchExport",
+    "modelTraining"
+  ]
+}
