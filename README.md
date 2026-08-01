@@ -37,11 +37,28 @@ The committed `.env.example` contains only approved non-secret variables. Real `
 
 `cloudbaserc.example.json` is a non-deploying template. Before a later deployment, an authorized operator must copy it to `cloudbaserc.json`, supply the real CloudBase environment ID outside the repository, verify the complete environment-variable object, and complete the production activation requirements. CloudBase environment-variable deployment behavior can replace or update the cloud-side set depending on CLI version and operator choice, so it must be reviewed before every deployment.
 
-## Contract verification
+## MySQL schema and migration contract
 
-Run the complete contract suite with Node.js 22:
+PR #7 establishes a repository-controlled MySQL 8 schema and reversible migration contract only. It does not connect a real CloudBase or managed MySQL environment, create a production database, expose a submission endpoint, or enable runtime persistence.
+
+The initial schema is stored under `backend/database/migrations/` and contains independent assessment records, one profile snapshot per assessment, one authoritative answer row per item, independent research consent, and migration audit metadata. It deliberately does not create person, organization, customer, account, or tenant master records and does not store scores, quadrant totals, focus routing, or compiled reports.
+
+Run the static database contract test with Node.js 22:
 
 ```bash
+node tests/mysql-schema-migration-contract.mjs
+```
+
+GitHub Actions additionally verifies the SQL against a disposable MySQL 8 service by applying the up migration, inserting legal records, proving illegal values are rejected, applying the down migration, and applying the up migration again.
+
+A future production migration requires authorized credentials outside the repository, a current backup, verified restore capability, checksum review, and an approved rollback procedure. The down migration is a disposable verification mechanism, not authorization to destroy production data.
+
+## Contract verification
+
+Run the complete static contract suite with Node.js 22:
+
+```bash
+node tests/mysql-schema-migration-contract.mjs
 node tests/backend-api-skeleton-contract.mjs
 node tests/backend-deployment-static-contract.mjs
 node tests/report-continuation-contract.mjs
