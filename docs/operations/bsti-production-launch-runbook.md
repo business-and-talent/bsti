@@ -58,6 +58,19 @@ node scripts/build-production-package.mjs \
 
 The builder refuses enabled mode when approval evidence is missing, incomplete, invalid, or expired.
 
+## Required HTTP routing
+
+The public `https://richboss.com/api/v1/assessments` request must reach the backend upstream `/v1/assessments` route.
+
+For the CloudBase `/api/*` route:
+
+- route the request to the `bsti-api` function;
+- configure `PathRewrite.Prefix` as `/` so the public `/api` prefix is removed;
+- keep 路径透传关闭 so the backend does not receive `/api/v1/assessments`;
+- verify the function receives `/v1/assessments` before enabling submission.
+
+Without this rewrite, the current backend correctly returns `404 NOT_FOUND` because `/api/v1/assessments` is not an internal application route.
+
 ## Future production sequence
 
 After authorization, the operator must use the then-current Tencent Cloud documentation and console or CLI to:
@@ -69,7 +82,7 @@ After authorization, the operator must use the then-current Tencent Cloud docume
 5. deploy the backend with secrets supplied outside the repository;
 6. deploy the `dist/bsti/` static package;
 7. bind the filed `richboss.com` domain with HTTPS;
-8. route `/bsti/*` to static hosting and `/api/*` to the API;
+8. route `/bsti/*` to static hosting and `/api/*` to the API using the required prefix rewrite above;
 9. configure the future `fulaoban.cn/*` path-preserving redirect;
 10. run health, capabilities, submission, replay, report-display, and rollback smoke checks.
 
