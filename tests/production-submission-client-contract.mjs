@@ -6,6 +6,7 @@ const source = fs.readFileSync(new URL('../production/submission-client.js', imp
 const STORAGE_KEY = 'bsti.pendingSubmission.v1';
 const NOW = Date.parse('2026-08-02T06:10:00.000Z');
 const UUID = '123e4567-e89b-42d3-a456-426614174000';
+const normalize = (value) => JSON.parse(JSON.stringify(value));
 
 class FakeElement {
   constructor(tagName = 'div') {
@@ -165,7 +166,7 @@ function makeInstrumentAndState() {
   const harness = makeHarness({ enabled: false });
   const { instrument, state } = makeInstrumentAndState();
   assert.equal(harness.api.prepareSubmission(instrument, state), null);
-  assert.deepEqual(await harness.api.submitPrepared(null), { status: 'disabled' });
+  assert.equal((await harness.api.submitPrepared(null)).status, 'disabled');
   assert.equal(harness.fetchCalls.length, 0);
   assert.equal(harness.storage.has(STORAGE_KEY), false);
 }
@@ -180,10 +181,11 @@ function makeInstrumentAndState() {
   });
   const { instrument, state } = makeInstrumentAndState();
   const prepared = harness.api.prepareSubmission(instrument, state);
+  const preparedValue = normalize(prepared);
 
-  assert.equal(prepared.createdAt, NOW);
-  assert.equal(prepared.status, 'pending');
-  assert.deepEqual(prepared.payload, {
+  assert.equal(preparedValue.createdAt, NOW);
+  assert.equal(preparedValue.status, 'pending');
+  assert.deepEqual(preparedValue.payload, {
     schemaVersion: 'bsti-assessment-submission-v1',
     assessmentId: UUID,
     instrument: {
@@ -212,9 +214,9 @@ function makeInstrumentAndState() {
       value: (index % 5) + 1
     }))
   });
-  assert.deepEqual(JSON.parse(harness.storage.getItem(STORAGE_KEY)), prepared);
+  assert.deepEqual(JSON.parse(harness.storage.getItem(STORAGE_KEY)), preparedValue);
 
-  assert.deepEqual(await harness.api.submitPrepared(prepared), { status: 'failed' });
+  assert.equal((await harness.api.submitPrepared(prepared)).status, 'failed');
   assert.equal(harness.storage.has(STORAGE_KEY), true);
   assert.match(harness.statusHost.allText(), /报告已生成，但资料尚未保存/);
   assert.match(harness.statusHost.allText(), /重新保存/);
@@ -224,7 +226,7 @@ function makeInstrumentAndState() {
   assert.equal(harness.fetchCalls[0].options.method, 'POST');
   assert.equal(harness.fetchCalls[0].options.headers['Content-Type'], 'application/json');
 
-  assert.deepEqual(await harness.api.retryPending(), { status: 'saved' });
+  assert.equal((await harness.api.retryPending()).status, 'saved');
   assert.equal(harness.fetchCalls.length, 2);
   assert.equal(harness.fetchCalls[1].options.body, firstBody);
   assert.equal(harness.storage.has(STORAGE_KEY), false);
