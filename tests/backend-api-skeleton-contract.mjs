@@ -51,14 +51,66 @@ assert.deepEqual(productionClosed, {
   port: 9000
 });
 
+const enabled = loadConfig({
+  BSTI_RUNTIME_ENV: 'development',
+  BSTI_SUBMISSION_ENABLED: 'true',
+  BSTI_API_VERSION: 'v1',
+  PORT: '9001',
+  BSTI_DB_HOST: '127.0.0.1',
+  BSTI_DB_NAME: 'bsti_contract',
+  BSTI_DB_USER: 'bsti_user',
+  BSTI_DB_PASSWORD: 'test-password'
+});
+assert.deepEqual(enabled, {
+  service: 'bsti-api',
+  runtimeEnv: 'development',
+  submissionEnabled: true,
+  apiVersion: 'v1',
+  port: 9001,
+  database: {
+    host: '127.0.0.1',
+    port: 3306,
+    name: 'bsti_contract',
+    user: 'bsti_user',
+    password: 'test-password',
+    connectionLimit: 4
+  }
+});
+assert.equal(Object.isFrozen(enabled), true);
+assert.equal(Object.isFrozen(enabled.database), true);
+
 expectConfigError({ BSTI_RUNTIME_ENV: 'staging' }, 'INVALID_RUNTIME_ENV');
-expectConfigError({ BSTI_SUBMISSION_ENABLED: 'true' }, 'SUBMISSION_DISABLED');
 expectConfigError({ BSTI_SUBMISSION_ENABLED: '1' }, 'INVALID_SUBMISSION_FLAG');
 expectConfigError({ BSTI_API_VERSION: 'v2' }, 'INVALID_API_VERSION');
 expectConfigError({ PORT: '0' }, 'INVALID_PORT');
 expectConfigError({ PORT: '65536' }, 'INVALID_PORT');
 expectConfigError({ PORT: '9000.5' }, 'INVALID_PORT');
 expectConfigError({ PORT: 'secret-port-value' }, 'INVALID_PORT');
+expectConfigError({ BSTI_SUBMISSION_ENABLED: 'true' }, 'MISSING_DB_HOST');
+expectConfigError({ BSTI_SUBMISSION_ENABLED: 'true', BSTI_DB_HOST: 'host' }, 'MISSING_DB_NAME');
+expectConfigError({ BSTI_SUBMISSION_ENABLED: 'true', BSTI_DB_HOST: 'host', BSTI_DB_NAME: 'db' }, 'MISSING_DB_USER');
+expectConfigError({
+  BSTI_SUBMISSION_ENABLED: 'true',
+  BSTI_DB_HOST: 'host',
+  BSTI_DB_NAME: 'db',
+  BSTI_DB_USER: 'user'
+}, 'MISSING_DB_PASSWORD');
+expectConfigError({
+  BSTI_SUBMISSION_ENABLED: 'true',
+  BSTI_DB_HOST: 'host',
+  BSTI_DB_NAME: 'db',
+  BSTI_DB_USER: 'user',
+  BSTI_DB_PASSWORD: 'password',
+  BSTI_DB_PORT: '0'
+}, 'INVALID_DB_PORT');
+expectConfigError({
+  BSTI_SUBMISSION_ENABLED: 'true',
+  BSTI_DB_HOST: 'host',
+  BSTI_DB_NAME: 'db',
+  BSTI_DB_USER: 'user',
+  BSTI_DB_PASSWORD: 'password',
+  BSTI_DB_CONNECTION_LIMIT: '21'
+}, 'INVALID_DB_CONNECTION_LIMIT');
 
 assert.deepEqual(P0_CAPABILITIES, {
   apiVersion: 'v1',
@@ -76,6 +128,14 @@ assert.deepEqual(firstCapabilities, P0_CAPABILITIES);
 assert.deepEqual(secondCapabilities, P0_CAPABILITIES);
 assert.notEqual(firstCapabilities, P0_CAPABILITIES);
 assert.notEqual(firstCapabilities, secondCapabilities);
+assert.deepEqual(getCapabilities(enabled), {
+  apiVersion: 'v1',
+  healthCheck: true,
+  assessmentSubmission: true,
+  persistence: true,
+  backendScoring: false,
+  backendReportCompilation: false
+});
 
 const REQUIRED_HEADERS = {
   'content-type': 'application/json; charset=utf-8',

@@ -7,6 +7,14 @@ export const P0_CAPABILITIES = Object.freeze({
   backendReportCompilation: false
 });
 
-export function getCapabilities() {
-  return { ...P0_CAPABILITIES };
+export function getCapabilities(config = { submissionEnabled: false }) {
+  const enabled = config.submissionEnabled === true;
+  return {
+    apiVersion: 'v1',
+    healthCheck: true,
+    assessmentSubmission: enabled,
+    persistence: enabled,
+    backendScoring: false,
+    backendReportCompilation: false
+  };
 }

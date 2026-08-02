@@ -7,16 +7,22 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const migrationsDir = path.join(root, 'backend/database/migrations');
 const upPath = path.join(migrationsDir, '0001_initial_bsti_schema.up.sql');
 const downPath = path.join(migrationsDir, '0001_initial_bsti_schema.down.sql');
+const fingerprintUpPath = path.join(migrationsDir, '0002_add_submission_fingerprint.up.sql');
+const fingerprintDownPath = path.join(migrationsDir, '0002_add_submission_fingerprint.down.sql');
 const contractPath = path.join(root, 'platform/contracts/p0-data-model.v0.1.json');
 const capabilitiesPath = path.join(root, 'backend/functions/bsti-api/src/capabilities.js');
 const frozenBoundariesPath = path.join(root, 'platform/contracts/frozen-boundaries.v0.1.json');
 
 assert.equal(fs.existsSync(upPath), true, 'Initial MySQL up migration is missing');
 assert.equal(fs.existsSync(downPath), true, 'Initial MySQL down migration is missing');
+assert.equal(fs.existsSync(fingerprintUpPath), true, 'Submission fingerprint up migration is missing');
+assert.equal(fs.existsSync(fingerprintDownPath), true, 'Submission fingerprint down migration is missing');
 assert.equal(fs.existsSync(contractPath), true, 'P0 data-model contract is missing');
 
 const up = fs.readFileSync(upPath, 'utf8');
 const down = fs.readFileSync(downPath, 'utf8');
+const fingerprintUp = fs.readFileSync(fingerprintUpPath, 'utf8');
+const fingerprintDown = fs.readFileSync(fingerprintDownPath, 'utf8');
 const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
 const capabilities = fs.readFileSync(capabilitiesPath, 'utf8');
 const frozenBoundaries = JSON.parse(fs.readFileSync(frozenBoundariesPath, 'utf8'));
@@ -32,6 +38,10 @@ assert.deepEqual(contract, {
     timestampsUtc: true,
     uuidStorage: 'CHAR(36)'
   },
+  migrations: [
+    '0001_initial_bsti_schema',
+    '0002_add_submission_fingerprint'
+  ],
   tables: [
     'schema_migrations',
     'assessments',
@@ -45,7 +55,14 @@ assert.deepEqual(contract, {
     statuses: ['draft', 'submitted', 'voided'],
     submittedImmutable: true,
     voidedTerminal: true,
-    retakeCreatesNewAssessment: true
+    retakeCreatesNewAssessment: true,
+    submissionFingerprint: {
+      algorithm: 'sha256',
+      format: 'lowercase-hex-64',
+      excludesAssessmentId: true,
+      excludesServerTimestamps: true,
+      researchExportable: false
+    }
   },
   answers: {
     authoritativeRepresentation: 'one-row-per-item',
@@ -116,6 +133,14 @@ assert.match(up, /redacted_by_actor_type/i);
 assert.match(up, /redacted_by_actor_reference/i);
 assert.doesNotMatch(up, /anonymized_at|anonymization_reason_code|anonymized_by_actor/i);
 
+assert.match(fingerprintUp, /ADD\s+COLUMN\s+submission_fingerprint\s+CHAR\(64\)/i);
+assert.match(fingerprintUp, /CHARACTER\s+SET\s+ascii\s+COLLATE\s+ascii_bin/i);
+assert.match(fingerprintUp, /CONSTRAINT\s+chk_assessments_submission_fingerprint/i);
+assert.match(fingerprintUp, /REGEXP\s+'\^\[0-9a-f\]\{64\}\$'/i);
+assert.match(fingerprintDown, /DROP\s+CHECK\s+chk_assessments_submission_fingerprint/i);
+assert.match(fingerprintDown, /DROP\s+COLUMN\s+submission_fingerprint/i);
+assert.doesNotMatch(fingerprintUp, /UNIQUE/i);
+
 const requiredConstraintNames = [
   'chk_schema_migrations_checksum',
   'chk_assessments_status',
@@ -150,7 +175,9 @@ for (const indexName of requiredIndexNames) {
 const migrationFiles = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort();
 assert.deepEqual(migrationFiles, [
   '0001_initial_bsti_schema.down.sql',
-  '0001_initial_bsti_schema.up.sql'
+  '0001_initial_bsti_schema.up.sql',
+  '0002_add_submission_fingerprint.down.sql',
+  '0002_add_submission_fingerprint.up.sql'
 ]);
 
 const dropOrder = [
@@ -167,6 +194,7 @@ for (const table of dropOrder) {
   priorIndex = index;
 }
 
+const allSql = `${up}\n${down}\n${fingerprintUp}\n${fingerprintDown}`;
 const forbiddenSqlPatterns = [
   /CREATE\s+TRIGGER/i,
   /CREATE\s+PROCEDURE/i,
@@ -179,7 +207,7 @@ const forbiddenSqlPatterns = [
   /CREATE\s+TABLE\s+(persons?|organizations?|customers?|accounts?|tenants?)\b/i
 ];
 for (const pattern of forbiddenSqlPatterns) {
-  assert.doesNotMatch(up, pattern);
+  assert.doesNotMatch(allSql, pattern);
 }
 
 const secretPatterns = [
@@ -191,7 +219,7 @@ const secretPatterns = [
   /10\.\d+\.\d+\.\d+/
 ];
 for (const pattern of secretPatterns) {
-  assert.doesNotMatch(`${up}\n${down}\n${JSON.stringify(contract)}`, pattern);
+  assert.doesNotMatch(`${allSql}\n${JSON.stringify(contract)}`, pattern);
 }
 
 assert.equal(frozenBoundaries.instrument.id, 'BSTI-40');
@@ -202,7 +230,7 @@ assert.deepEqual(frozenBoundaries.scoreInputs, ['answers']);
 assert.deepEqual(frozenBoundaries.contextOnlyInputs, ['revenueBand', 'headcountBand']);
 
 for (const capability of contract.runtimeCapabilitiesRemainDisabled) {
-  assert.match(capabilities, new RegExp(`${capability}: false`), `${capability} must remain disabled`);
+  assert.match(capabilities, new RegExp(`${capability}: false`), `${capability} must remain disabled by default`);
 }
 
 console.log('MySQL schema and migration contract: PASS');

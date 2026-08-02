@@ -13,6 +13,9 @@ const requiredFiles = [
   'backend/functions/bsti-api/src/app.js',
   'backend/functions/bsti-api/src/config.js',
   'backend/functions/bsti-api/src/capabilities.js',
+  'backend/functions/bsti-api/src/database.js',
+  'backend/functions/bsti-api/src/assessment-repository.js',
+  'backend/functions/bsti-api/src/assessment-submission-service.js',
   'cloudbaserc.example.json',
   '.gitignore'
 ];
@@ -39,7 +42,15 @@ assert.deepEqual(envExample, [
   'BSTI_RUNTIME_ENV=development',
   'BSTI_SUBMISSION_ENABLED=false',
   'BSTI_API_VERSION=v1',
-  'PORT=9000'
+  'PORT=9000',
+  '',
+  '# Required only when BSTI_SUBMISSION_ENABLED=true.',
+  'BSTI_DB_HOST=',
+  'BSTI_DB_PORT=3306',
+  'BSTI_DB_NAME=',
+  'BSTI_DB_USER=',
+  'BSTI_DB_PASSWORD=',
+  'BSTI_DB_CONNECTION_LIMIT=4'
 ]);
 
 const cloudbase = JSON.parse(read('cloudbaserc.example.json'));
@@ -61,13 +72,14 @@ assert.deepEqual(cloudbase.functions[0], {
     PORT: '9000'
   }
 });
+assert.equal('BSTI_DB_PASSWORD' in cloudbase.functions[0].envVariables, false);
 
 const packageJson = JSON.parse(read('backend/functions/bsti-api/package.json'));
 assert.equal(packageJson.private, true);
 assert.equal(packageJson.type, 'module');
 assert.equal(packageJson.engines.node, '>=20.19.0');
 assert.equal(packageJson.scripts.start, 'node index.js');
-assert.equal(packageJson.dependencies, undefined);
+assert.deepEqual(packageJson.dependencies, { mysql2: '3.23.2' });
 assert.equal(packageJson.devDependencies, undefined);
 
 const gitignore = read('.gitignore');
@@ -89,23 +101,36 @@ const backendSources = [
   read('backend/functions/bsti-api/src/app.js'),
   read('backend/functions/bsti-api/src/config.js'),
   read('backend/functions/bsti-api/src/capabilities.js'),
+  read('backend/functions/bsti-api/src/database.js'),
+  read('backend/functions/bsti-api/src/assessment-repository.js'),
+  read('backend/functions/bsti-api/src/assessment-submission-service.js'),
   bootstrap,
   JSON.stringify(cloudbase)
 ].join('\n');
 
 for (const forbidden of [
   '@cloudbase/',
-  'mysql',
   'BEGIN PRIVATE KEY',
   'TENCENTCLOUD_SECRETID',
   'TENCENTCLOUD_SECRETKEY',
   "from '../../../index.html'",
   'scoreAssessment',
-  'buildReportViewModel'
+  'buildReportViewModel',
+  'quadrant_score',
+  'report_html',
+  'report_json'
 ]) {
   assert.equal(backendSources.includes(forbidden), false, `forbidden backend content: ${forbidden}`);
 }
-assert.equal(/POST\s+\/assessment/i.test(backendSources), false);
+for (const secretPattern of [
+  /mysql:\/\//i,
+  /10\.\d+\.\d+\.\d+/,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/
+]) {
+  assert.doesNotMatch(backendSources, secretPattern);
+}
+assert.equal(backendSources.includes("'/v1/assessments'"), true);
+assert.equal(backendSources.includes("'SUBMISSION_DISABLED'"), true);
 
 const environments = JSON.parse(read('platform/contracts/environments.v0.1.json'));
 assert.equal(environments.environments.development.submissionMode, 'disabled');
