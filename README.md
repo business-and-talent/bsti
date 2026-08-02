@@ -8,6 +8,20 @@ GitHub Pages is a development/demo environment only. It must not collect real id
 
 The future P0 production path is Tencent Cloud CloudBase in Shanghai. Production activation remains launch-gated until the registered entity, personal-information rights contact, approved first-party domain, Tencent Cloud contracting entity, vendor/data-flow inventory, storage and backup verification, and final legal review are complete.
 
+## Production-ready disabled package
+
+The future canonical BSTI URL is `https://richboss.com/bsti/`. The repository can generate a deployable static package while submission remains disabled:
+
+```bash
+node scripts/build-production-package.mjs \
+  --output dist \
+  --source-commit "$(git rev-parse HEAD)"
+```
+
+The output contains `dist/bsti/` and `dist/deployment-manifest.json`. The committed default and CI artifact always keep frontend submission disabled. GitHub Actions uploads the disabled artifact as `bsti-production-ready-disabled` but does not deploy it.
+
+An enabled package requires the ignored `deployment/release-approval.json` file and complete evidence for every gate in `platform/contracts/production-launch-gates.v0.1.json`. PR #9 does not authorize production activation. See `docs/operations/bsti-production-launch-runbook.md`.
+
 ## Backend API
 
 The backend repository contains:
@@ -39,7 +53,7 @@ curl http://127.0.0.1:9000/health
 curl http://127.0.0.1:9000/v1/capabilities
 ```
 
-Enabled submission additionally requires `npm install` and the complete database environment-variable set shown in `backend/functions/bsti-api/.env.example`. PR #8 does not supply real credentials, connect a production environment, or connect the GitHub Pages demo to the API. Those actions remain launch-gated for PR #9.
+Enabled submission additionally requires `npm install` and the complete database environment-variable set shown in `backend/functions/bsti-api/.env.example`. PR #8 does not supply real credentials, connect a production environment, or connect the GitHub Pages demo to the API. Those actions remain launch-gated.
 
 The committed `.env.example` contains names and safe defaults only. Real `.env` files, `cloudbaserc.json`, CloudBase local state, and private-key files are ignored.
 
@@ -69,6 +83,8 @@ A future production migration requires authorized credentials outside the reposi
 Run the static contract suite with Node.js 22:
 
 ```bash
+node tests/production-package-contract.mjs
+node tests/production-submission-client-contract.mjs
 node tests/assessment-submission-validation-contract.mjs
 node tests/assessment-submission-http-contract.mjs
 node tests/assessment-repository-contract.mjs
