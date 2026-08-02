@@ -119,13 +119,12 @@ const moduleScriptPosition = [
 assert.equal(runtimeScriptPosition >= 0, true);
 assert.equal(clientScriptPosition > runtimeScriptPosition, true);
 assert.equal(moduleScriptPosition > clientScriptPosition, true);
-assert.match(packagedIndex, /window\.BSTISubmission\.prepareSubmission\(instrument, state\)/);
-assert.match(packagedIndex, /window\.BSTISubmission\.submitPrepared\(preparedSubmission\)/);
-assert.equal(
-  packagedIndex.indexOf("dispatch({ type: 'SET_RESULT'") < packagedIndex.indexOf('window.BSTISubmission.submitPrepared(preparedSubmission)'),
-  true,
-  'report rendering must start before persistence'
-);
+const reportPosition = packagedIndex.indexOf("dispatch({ type: 'SET_RESULT'");
+const preparePosition = packagedIndex.indexOf('window.BSTISubmission.prepareSubmission(instrument, state)');
+const submitPosition = packagedIndex.indexOf('window.BSTISubmission.submitPrepared(preparedSubmission)');
+assert.equal(reportPosition >= 0, true);
+assert.equal(preparePosition > reportPosition, true, 'report must display before persistence preparation');
+assert.equal(submitPosition > preparePosition, true, 'persistence must start after preparation');
 
 const runtimeConfig = fs.readFileSync(new URL('bsti/runtime-config.js', outputPath), 'utf8');
 assert.match(runtimeConfig, /environment:\s*'production-ready'/);
