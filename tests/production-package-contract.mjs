@@ -66,6 +66,9 @@ assert.match(runbook, /PR #9.*不授权.*生产/i);
 assert.match(runbook, /deployment\/release-approval\.json/);
 assert.match(runbook, /richboss\.com\/bsti\//);
 assert.match(runbook, /fulaoban\.cn/);
+assert.match(runbook, /public `\/api\/v1\/assessments`.*upstream `\/v1\/assessments`/s);
+assert.match(runbook, /PathRewrite\.Prefix.*`\/`/);
+assert.match(runbook, /路径透传.*关闭/);
 
 const readme = read('README.md');
 assert.match(readme, /Production-ready disabled package/);
