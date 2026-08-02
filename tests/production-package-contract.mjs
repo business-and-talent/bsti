@@ -94,8 +94,8 @@ assert.equal(
   true,
   'report rendering must start before persistence'
 );
-assert.match(packagedIndex, /href="\.\/privacy\.html"/);
-assert.match(packagedIndex, /href="\.\/report-usage\.html"/);
+assert.match(packagedIndex, /href=['"]\.\/privacy\.html['"]/);
+assert.match(packagedIndex, /href=['"]\.\/report-usage\.html['"]/);
 
 const runtimeConfig = fs.readFileSync(new URL('bsti/runtime-config.js', outputPath), 'utf8');
 assert.match(runtimeConfig, /environment:\s*'production-ready'/);
