@@ -80,7 +80,10 @@ for (const relativePath of requiredPackageFiles) {
 const packagedIndex = fs.readFileSync(new URL('bsti/index.html', outputPath), 'utf8');
 const runtimeScriptPosition = packagedIndex.indexOf('<script src="./runtime-config.js"></script>');
 const clientScriptPosition = packagedIndex.indexOf('<script src="./submission-client.js"></script>');
-const moduleScriptPosition = packagedIndex.indexOf('<script type="module">');
+const moduleScriptPosition = [
+  packagedIndex.indexOf("<script type='module'>"),
+  packagedIndex.indexOf('<script type="module">')
+].find((position) => position >= 0) ?? -1;
 assert.equal(runtimeScriptPosition >= 0, true);
 assert.equal(clientScriptPosition > runtimeScriptPosition, true);
 assert.equal(moduleScriptPosition > clientScriptPosition, true);
