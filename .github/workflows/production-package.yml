@@ -21,5 +21,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run production package contract
-        run: node tests/production-package-contract.mjs
+      - name: Run production package contracts
+        run: |
+          node tests/production-package-contract.mjs
+          node tests/production-submission-client-contract.mjs
