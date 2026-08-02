@@ -60,7 +60,7 @@ The builder refuses enabled mode when approval evidence is missing, incomplete, 
 
 ## Required HTTP routing
 
-The public `https://richboss.com/api/v1/assessments` request must reach the backend upstream `/v1/assessments` route.
+The public `/api/v1/assessments` path at `https://richboss.com/api/v1/assessments` must reach the backend upstream `/v1/assessments` route.
 
 For the CloudBase `/api/*` route:
 
