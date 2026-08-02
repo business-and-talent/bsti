@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "bsti-production-launch-gates-v0.1",
+  "submissionEnabledByDefault": false,
+  "canonical": {
+    "domain": "richboss.com",
+    "bstiPath": "/bsti/",
+    "apiPath": "/api/v1/assessments",
+    "chineseEntryDomain": "fulaoban.cn",
+    "chineseEntryRedirectMode": "path_preserving_permanent_redirect"
+  },
+  "requiredGateIds": [
+    "icp_filing_complete",
+    "operating_legal_entity_confirmed",
+    "personal_information_rights_contact_confirmed",
+    "tencent_cloud_contracting_entity_confirmed",
+    "cloudbase_shanghai_environment_confirmed",
+    "production_mysql_empty_confirmed",
+    "backup_restore_verified",
+    "vendor_data_flow_inventory_approved",
+    "legal_documents_finalized",
+    "https_and_path_routing_verified",
+    "final_legal_review_approved",
+    "release_approval_recorded"
+  ]
+}
