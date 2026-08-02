@@ -84,8 +84,9 @@ function packageIndex(source) {
     throw new Error('Source submitAssessment contract no longer matches');
   }
   const withSubmission = source.replace(originalSubmitFunction, packagedSubmitFunction);
-  const moduleMarker = '<script type="module">';
-  if (!withSubmission.includes(moduleMarker)) {
+  const moduleMarker = ["<script type='module'>", '<script type="module">']
+    .find((candidate) => withSubmission.includes(candidate));
+  if (!moduleMarker) {
     throw new Error('Source module script marker is missing');
   }
   return withSubmission.replace(
