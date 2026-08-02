@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const root = new URL('../', import.meta.url);
@@ -50,7 +50,28 @@ const workflowPath = new URL('.github/workflows/production-package.yml', root);
 assert.equal(fs.existsSync(workflowPath), true, 'production package workflow is missing');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 assert.match(workflow, /node tests\/production-package-contract\.mjs/);
+assert.match(workflow, /node tests\/production-submission-client-contract\.mjs/);
+assert.match(workflow, /node scripts\/build-production-package\.mjs --output dist --source-commit/);
+assert.match(workflow, /actions\/upload-artifact@v4/);
+assert.match(workflow, /name:\s*bsti-production-ready-disabled/);
+assert.match(workflow, /path:\s*dist/);
+assert.doesNotMatch(workflow, /--enable-submission/);
 assert.doesNotMatch(workflow, /cloudbase\s+deploy|tcb\s+framework|secretId|secretKey/i);
+
+const runbookPath = new URL('docs/operations/bsti-production-launch-runbook.md', root);
+assert.equal(fs.existsSync(runbookPath), true, 'production launch runbook is missing');
+const runbook = fs.readFileSync(runbookPath, 'utf8');
+assert.match(runbook, /ICP.*未完成/);
+assert.match(runbook, /PR #9.*不授权.*生产/i);
+assert.match(runbook, /deployment\/release-approval\.json/);
+assert.match(runbook, /richboss\.com\/bsti\//);
+assert.match(runbook, /fulaoban\.cn/);
+
+const readme = read('README.md');
+assert.match(readme, /Production-ready disabled package/);
+assert.match(readme, /richboss\.com\/bsti\//);
+assert.match(readme, /build-production-package\.mjs/);
+assert.match(readme, /submission.*disabled/i);
 
 const buildScriptPath = new URL('scripts/build-production-package.mjs', root);
 assert.equal(fs.existsSync(buildScriptPath), true, 'production package builder is missing');
@@ -64,6 +85,17 @@ execFileSync(process.execPath, [
   '--output', outputPath.pathname,
   '--source-commit', 'test-sha'
 ], { cwd: root.pathname, stdio: 'pipe' });
+
+const unauthorizedOutputPath = new URL('.tmp/unauthorized-enabled-package/', root);
+const unauthorized = spawnSync(process.execPath, [
+  new URL('scripts/build-production-package.mjs', root).pathname,
+  '--output', unauthorizedOutputPath.pathname,
+  '--source-commit', 'test-sha',
+  '--enable-submission'
+], { cwd: root.pathname, encoding: 'utf8' });
+assert.notEqual(unauthorized.status, 0);
+assert.match(unauthorized.stderr, /requires --release-approval/);
+assert.equal(fs.existsSync(unauthorizedOutputPath), false);
 
 const requiredPackageFiles = [
   'bsti/index.html',
@@ -125,4 +157,5 @@ assert.doesNotMatch(packageText, /mysql:\/\//i);
 assert.doesNotMatch(packageText, /10\.\d+\.\d+\.\d+/);
 
 fs.rmSync(outputPath, { recursive: true, force: true });
+fs.rmSync(unauthorizedOutputPath, { recursive: true, force: true });
 console.log('Production package and launch-gate contract: PASS');
