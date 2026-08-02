@@ -25,3 +25,13 @@ jobs:
         run: |
           node tests/production-package-contract.mjs
           node tests/production-submission-client-contract.mjs
+
+      - name: Build disabled production package
+        run: node scripts/build-production-package.mjs --output dist --source-commit "$GITHUB_SHA"
+
+      - name: Upload disabled production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: bsti-production-ready-disabled
+          path: dist
+          retention-days: 7
