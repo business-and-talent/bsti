@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "bsti-production-release-approval-v0.1",
+  "approvedDomain": "richboss.com",
+  "approvedBy": "REPLACE_WITH_AUTHORIZED_APPROVER",
+  "approvedAt": "REPLACE_WITH_ISO_8601_TIMESTAMP",
+  "expiresAt": "REPLACE_WITH_ISO_8601_TIMESTAMP",
+  "gates": {
+    "icp_filing_complete": false,
+    "operating_legal_entity_confirmed": false,
+    "personal_information_rights_contact_confirmed": false,
+    "tencent_cloud_contracting_entity_confirmed": false,
+    "cloudbase_shanghai_environment_confirmed": false,
+    "production_mysql_empty_confirmed": false,
+    "backup_restore_verified": false,
+    "vendor_data_flow_inventory_approved": false,
+    "legal_documents_finalized": false,
+    "https_and_path_routing_verified": false,
+    "final_legal_review_approved": false,
+    "release_approval_recorded": false
+  }
+}

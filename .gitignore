@@ -7,4 +7,7 @@ cloudbaserc.json.local
 *.pem
 *.key
 node_modules/
+dist/
+.tmp/
+deployment/release-approval.json
 .DS_Store
